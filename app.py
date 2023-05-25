@@ -8,7 +8,7 @@ table_name = 'login'
 
 # Define the data to be added
 item = {
- 'otp': {'S':458758'}
+ 'otp': {'S':'458758'}
 }
 
 # Add the item to the DynamoDB table
