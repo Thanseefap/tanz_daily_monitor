@@ -1,7 +1,7 @@
 import boto3
 
 # Create a DynamoDB client
-dynamodb_client = boto3.client('dynamodb')
+dynamodb_client = boto3.client('dynamodb',region_name='us-east-1')
 
 # Define the table name
 table_name = 'Shoonya'
