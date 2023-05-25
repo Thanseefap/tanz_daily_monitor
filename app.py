@@ -8,7 +8,6 @@ table_name = 'Shoonya'
 
 # Define the data to be added
 item = {
- 'otp': 
     'metrices': {'S': 'OTP'},
     'value': {'S': '45789'}
 }
