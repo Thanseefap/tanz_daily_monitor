@@ -18,7 +18,7 @@ response = dynamodb_client.update_item(
     Key={
         'metrices': {'S': partition_key_value}
     },
-    UpdateExpression='SET attribute1 = :value1',
+    UpdateExpression='SET value = :value1',
     ExpressionAttributeValues={
         ':value1': {'S': updated_attribute1}
     }
