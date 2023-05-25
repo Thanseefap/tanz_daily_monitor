@@ -10,7 +10,7 @@ table_name = 'Shoonya'
 partition_key_value = 'OTP'
 
 # Define the updated values for other attributes
-updated_attribute1 = '1111'
+updated_attribute1 = '1112'
 
 # Update the item using the partition key
 response = dynamodb_client.update_item(
