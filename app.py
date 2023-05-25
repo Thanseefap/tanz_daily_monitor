@@ -4,11 +4,13 @@ import boto3
 dynamodb_client = boto3.client('dynamodb',region_name='us-east-1')
 
 # Define the table name
-table_name = 'login'
+table_name = 'Shoonya'
 
 # Define the data to be added
 item = {
- 'otp': {'S':'458758'}
+ 'otp': 
+    'metrices': {'S': 'OTP'},
+    'value': {'S': '45789'}
 }
 
 # Add the item to the DynamoDB table
