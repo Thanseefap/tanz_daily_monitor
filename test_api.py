@@ -1,5 +1,4 @@
-from api_helper import ShoonyaApiPy
-import logging
+from login import shoonya
  
 #enable dbug to see request and responses
 logging.basicConfig(level=logging.DEBUG)
