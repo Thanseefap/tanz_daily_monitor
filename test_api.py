@@ -48,7 +48,7 @@ def Riskmanager(script,percent):
 
 
 scrip=input('Enter the script name')
-stop_loss=int(input('Enter the SL'))
+stop_loss=float(input('Enter the SL'))
 
 def update_strategy_performance():
     # code to update the performance of the trading strategy
