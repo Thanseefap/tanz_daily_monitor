@@ -6,6 +6,9 @@ from datetime import datetime
 otp=input('Enter OTP:')
 client=shoonya(twofa=otp)
 api=client.login()
+scrip=input('Enter the script name')
+stop_loss=float(input('Enter the SL'))
+
 
 def Riskmanager(script,percent):
         margin=api.get_limits()
@@ -47,8 +50,6 @@ def Riskmanager(script,percent):
 
 
 
-scrip=input('Enter the script name')
-stop_loss=float(input('Enter the SL'))
 
 def update_strategy_performance():
     # code to update the performance of the trading strategy
