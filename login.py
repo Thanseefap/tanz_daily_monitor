@@ -50,11 +50,13 @@ class shoonya(object):
         
             ret = api.login(userid=self.uid, password=self.pwd, twoFA=self.factor2, vendor_code=self.vc, api_secret=self.app_key, imei=self.imei)
             
-                
-            if ret['stat']=='Ok':
+            if ret is not None :   
+               if ret['stat']=='Ok':
                     self.api = api
                     print("Logged In.")
                     return self.api
-            else:
+               else:
                     print(f"Unable to Login. Reason:{res.text}")
                     return
+            else:
+                  print('login  error')
