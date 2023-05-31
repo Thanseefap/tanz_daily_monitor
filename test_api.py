@@ -1,5 +1,8 @@
 from login import shoonya
 
-otp=input()
+
+class 
+otp=input('Enter OTP:')
 client=shoonya(twofa=otp)
 api=client.login()
+
