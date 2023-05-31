@@ -51,7 +51,7 @@ def Riskmanager(script,percent):
 
 
 
-def update_strategy_performance():
+def update_strategy_performance(scrip,stop_loss):
     # code to update the performance of the trading strategy
     show=Riskmanager(scrip,stop_loss)
     Net_credit=show[4]
@@ -138,7 +138,7 @@ exit_button.pack()
 exit_button = tk.Button(root, text="Exit Screen", command=root.destroy)
 exit_button.pack()
 
-update_strategy_performance()
+update_strategy_performance(scrip,stopp_loss)
 
 root.mainloop()
 
