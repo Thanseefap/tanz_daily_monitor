@@ -1,5 +1,5 @@
 from login import shoonya
-import tkinter as tk
+import tk
 from datetime import datetime
 
 
