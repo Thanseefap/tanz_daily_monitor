@@ -1,4 +1,5 @@
 from login import shoonya
- 
-client=shoonya(twofa='84485')
+
+otp=input()
+client=shoonya(twofa=otp)
 api=client.login()
