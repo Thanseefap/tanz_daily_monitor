@@ -61,6 +61,7 @@ def update_strategy_performance(scrip, stop_loss):
     stop_loss = show[2]
     margin = show[3]
     sl_in_cash = stop_loss * (margin / 100)
+    print(Net_PL,sl_in_cash)
     # Modify the code here to perform the necessary actions with the values, such as saving to a file or database.
 
 def on_entry_button_click():
