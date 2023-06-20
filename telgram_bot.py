@@ -11,6 +11,8 @@ from io import BytesIO
 import logging
 from telegram import InputMediaPhoto
 from telegram.ext import Updater, CommandHandler
+from datetime import datetime
+
 
 
 
@@ -88,8 +90,7 @@ class shoonya(object):
                 return 'login  error'
                 print('login  error')
                     
-import tkinter as tk
-from datetime import datetime
+
 
 
 
