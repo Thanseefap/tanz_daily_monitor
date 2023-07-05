@@ -405,7 +405,7 @@ def callback_handler(call):
         
                               
     bot.send_message(message.chat.id, 'Main Menu', reply_markup=markup)
-bot.infinity_polling(timeout=10, long_polling_timeout = 10)
+bot.infinity_polling(timeout=10, long_polling_timeout = 5)
                 
 
 
