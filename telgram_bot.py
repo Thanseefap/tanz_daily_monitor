@@ -1,12 +1,16 @@
 
 global scrip
+global api
+global SL
+global exit
+
 from NorenRestApiPy.NorenApi import  NorenApi
 import logging
 import requests
 import json,os
 import time,datetime
 from time import sleep
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 from io import BytesIO
 import logging
 from telegram import InputMediaPhoto
@@ -17,85 +21,13 @@ import numpy as np
 from tabulate import tabulate
 import pandas as pd
 from telebot import types
-#from login import shoonya
+from login import shoonya
 from datetime import datetime
 
 
 
-
-class shoonya(object):
-      
-    _root={"login": "/QuickAuth", "fund": "/Limits", "position": "/PositionBook", "orderbook": "/OrderBook", "tradebook": "/TradeBook", "holding": "/Holdings", 
-             "order": '/PlaceOrder', "modifyorder": '/ModifyOrder', "cancelorder": '/CancelOrder', "exitorder": '/ExitSNOOrder', "singleorderhistory": '/SingleOrdHist',
-             "searchscrip": '/SearchScrip', "scripinfo": '/GetSecurityInfo', "getquote": '/GetQuotes', "hist_data": "/TPSeries", "option": "/GetOptionChain"}
-    
-
         
-
-    #make the api call
-
-
-    def __init__(self, twofa: str = None, client_id: str = None):
-        if client_id=='1':
-            self.uid = 'FA127352'
-            self.pwd = 'Haya@2020'
-            self.factor2 = twofa
-            self.imei = '60-45-CB-C5-A7-49'
-            self.app_key = 'a2e650f7d642a160d3d428f6795c0b20'
-            self.vc = 'FA127352_U'
-        elif client_id=='2':
-            self.uid = 'FA92112'
-            self.pwd = 'Tanz@2020'
-            self.factor2 = twofa
-            self.imei = '60-45-CB-C5-A7-49'
-            self.app_key = '3314839374e9c76e933188930cef5bdd'
-            #self.wss = None
-            self.vc='FA92112_U'
-        else:
-            self.uid = 'FA76209'
-            self.pwd = 'Strangle@24'
-            self.factor2 = twofa
-            self.imei = '60-45-CB-C5-A7-49'
-            self.app_key = '6aa1e19981a9f1eeef8b2a96598ef3e3'
-            #self.wss = None
-            self.vc='FA76209_U'
-                        
-
-            
-            
-
-    def login(self):
-           
-            api = None
-    
-            class ShoonyaApiPy(NorenApi):
-               def __init__(self):
-                    NorenApi.__init__(self, host='https://api.shoonya.com/NorenWClientTP/', websocket='wss://api.shoonya.com/NorenWSTP/')        
-                    global api
-                    api = self
-            
-            
-       
-         
-        #enable dbug to see request and responses
-            logging.basicConfig(level=logging.DEBUG)
-            
-            #start of our program
-            api = ShoonyaApiPy()
-        
-            ret = api.login(userid=self.uid, password=self.pwd, twoFA=self.factor2, vendor_code=self.vc, api_secret=self.app_key, imei=self.imei)
-            
-            if ret is not None :   
-                if ret['stat']=='Ok':
-                    self.api = api
-                    print("Logged In.")
-                    return self.api
-                else:
-                    return f"Unable to Login. Reason:{res.text}"
-            else:
-                return 'login  error'
-                print('login  error')
-                    
+  
 
 
 
@@ -180,21 +112,17 @@ def update_strategy_performance(script, stop_loss):
 
 
 
+ 
 
 
-global api
-global SL
-global scrip
-global exit
-
-bot = telebot.TeleBot('6066484216:AAFmM3QTtaaR1JDIee71Vs3Aqq95DQNn9yk')
+bot = telebot.TeleBot('6277515369:AAET-z6EumKmJ2hgredC3akclYWrBdyG8n0')
 LOGIN_OTP = 'login_otp'
 SL_UPDATE = 'sl_update'
 
 
 # function to message the data as table 
 
-time.sleep(1)
+
 def send_dataframe(update,df):
     # Create a sample DataFrame
     # Convert the DataFrame to an image
@@ -280,7 +208,7 @@ def update_sl(message):
     sl = float(message.text)
     bot.send_message(message.chat.id, f'SL has been set to {sl}')
 
-@bot.message_handler(commands=['SL'])
+@bot.message_handler(commands=['sl'])       
 def sl_update(message):
     bot.send_message(message.chat.id, 'Enter SL:')
     bot.register_next_step_handler(message, update_sl)
@@ -291,13 +219,14 @@ def update_sl(message):
     sl = float(message.text)
     bot.send_message(message.chat.id, f'SL has been set to {sl}')
 
-@bot.message_handler(commands=['Login'])
+@bot.message_handler(commands=['login'])
 def login_shoonya(message):
     bot.send_message(message.chat.id, 'Enter OTP:')
     print(message)
     bot.register_next_step_handler(message, perform_login)
 
 def perform_login(message):
+    global api
     chat_id = message.chat.id
     otp = message.text
     client=shoonya(twofa=otp,client_id='2')
@@ -464,11 +393,11 @@ def callback_handler(call):
                 
                 # Create a DataFrame from the dictionary
                 df = pd.DataFrame(data)
-                send_dataframe(call.message.chat.id,df)
+                send_dataframe_as_table(call.message.chat.id,df)
                # send_dataframe_as_table(call.message.chat.id, df)
                 #bot.send_message(call.message.chat.id, 'Set Stop Loss :' +str(stop_loss)+'& Net P/L : '+str(Net_PL)+'  & Net Credit Amount = '+str(Net_credit))
                 time.sleep(15)  # Delay for 15 seconds
-                print('checker1')
+           #print('checker1')
            # if exit=='0':
             #    break
         if exit=='0':

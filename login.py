@@ -19,14 +19,30 @@ class shoonya(object):
     #make the api call
 
 
-    def __init__(self, twofa: str=None):
+    def __init__(self, twofa: str=None, client_id: str = None):
+        if client_id=='1':
             self.uid = 'FA127352'
             self.pwd = 'Haya@2020'
             self.factor2 = twofa
             self.imei = '60-45-CB-C5-A7-49'
             self.app_key = 'a2e650f7d642a160d3d428f6795c0b20'
+            self.vc = 'FA127352_U'
+        elif client_id=='2':
+            self.uid = 'FA92112'
+            self.pwd = 'Wafa@2020'
+            self.factor2 = twofa
+            self.imei = '60-45-CB-C5-A7-49'
+            self.app_key = '3314839374e9c76e933188930cef5bdd'
             #self.wss = None
-            self.vc='FA127352_U'
+            self.vc='FA92112_U'
+        else:
+            self.uid = 'FA76209'
+            self.pwd = 'Strangle@24'
+            self.factor2 = twofa
+            self.imei = '60-45-CB-C5-A7-49'
+            self.app_key = '6aa1e19981a9f1eeef8b2a96598ef3e3'
+            #self.wss = None
+            self.vc='FA76209_U'
             
 
     def login(self):
@@ -56,7 +72,7 @@ class shoonya(object):
                     print("Logged In.")
                     return self.api
                else:
-                    print(f"Unable to Login. Reason:{res.text}")
+                    print(f"Unable to Login. Reason:{ret.text}")
                     return
             else:
                   print('login  error')
