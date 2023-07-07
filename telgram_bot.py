@@ -1,8 +1,9 @@
 
 global scrip
 global api
-global SL
+global sl
 global exit
+global profit_b
 
 from NorenRestApiPy.NorenApi import  NorenApi
 import logging
@@ -19,6 +20,7 @@ from datetime import datetime
 import telebot
 import numpy as np
 from tabulate import tabulate
+
 import pandas as pd
 from telebot import types
 from login import shoonya
@@ -64,36 +66,46 @@ def Riskmanager(script,percent):
         except AttributeError:
             show=['No']
             return show
-        
+        def exit_position(qty,sym,sell_buy):
+             api.place_order(buy_or_sell=sell_buy
+                                , product_type='M',
+                                    exchange='NFO', tradingsymbol=symp, 
+                                    quantity=abs(int(qty)), discloseqty=0,price_type='MKT', #price=0.1,# trigger_price=199.50,
+                                    retention='DAY', remarks='my_algo_order')
+             
+        df=df1
+        symbols=df[df['netqty']!=0][['tsym','netqty']]
+        symbols=symbols.sort_values( by='netqty')    # ascending=False
         if p<percent:
-            
-            df=df1
-            symbols=df[df['netqty']!=0][['tsym','netqty']]
-            symbols.sort_values( by='netqty',
-            ascending=False)
             
             for i in range(len(symbols)):
                 symp=symbols.iloc[i][0]
                 if float(symbols.iloc[i][1])<0:
-                    api.place_order(buy_or_sell='B'
-                                , product_type='M',
-                                    exchange='NFO', tradingsymbol=symp, 
-                                    quantity=abs(int(symbols.iloc[i][1])), discloseqty=0,price_type='MKT', #price=0.1,# trigger_price=199.50,
-                                    retention='DAY', remarks='my_algo_order')
+                    exit_position(symbols.iloc[i][1],symp,'B')
                 else:
-                    api.place_order(buy_or_sell='S'
-                                , product_type='M',
-                                    exchange='NFO', tradingsymbol=symp, 
-                                    quantity=abs(int(symbols.iloc[i][1])), discloseqty=0,price_type='MKT', #price=0.1,# trigger_price=199.50,
-                                    retention='DAY', remarks='my_algo_order')
+                    exit_position(symbols.iloc[i][1],symp,'S')
                 
             show=['No']
             
             return show
          
-        show=[p,mtm,percent,used_margin,Net_credit,booked_pl,un_real_pl]
-        show= [ round(elem,2) for elem in show ]
-        return show
+        elif p>=profit_b:
+             for i in range(len(symbols)):
+                symp=symbols.iloc[i][0]
+                if float(symbols.iloc[i][1])<0:
+                    exit_position(symbols.iloc[i][1],symp,'B')
+                else:
+                    exit_position(symbols.iloc[i][1],symp,'S')
+                
+             show=['No']
+            
+             return show
+        else:
+             show=[p,mtm,percent,used_margin,Net_credit,booked_pl,un_real_pl]
+             show= [ round(elem,2) for elem in show ]
+             return show  
+    
+         
         
         
 def update_strategy_performance(script, stop_loss):
@@ -218,6 +230,19 @@ def update_sl(message):
     global sl
     sl = float(message.text)
     bot.send_message(message.chat.id, f'SL has been set to {sl}')
+
+# profit booking addition
+@bot.message_handler(commands=['profit_booking'])       
+def psl_update(message):
+    bot.send_message(message.chat.id, 'Enter profit_booking % :')
+    bot.register_next_step_handler(message, p_update_sl)
+
+def p_update_sl(message): 
+    chat_id = message.chat.id
+    global profit_b
+    profit_b = float(message.text)
+    bot.send_message(message.chat.id, f'Profit booking has been set to {profit_b}')
+
 
 @bot.message_handler(commands=['login'])
 def login_shoonya(message):
