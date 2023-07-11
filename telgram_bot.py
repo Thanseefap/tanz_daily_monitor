@@ -365,7 +365,7 @@ def callback_handler(call):
         # Create the submenu with nested commands
         submenu_markup = types.InlineKeyboardMarkup(row_width=2)
         submenu_item1 = types.InlineKeyboardButton('SHOW_KPI', callback_data='SHOW_KPI')
-        submenu_item2 = types.InlineKeyboardButton('Position', callback_data='Position')
+        submenu_item2 = types.InlineKeyboardButton('Pause RMS', callback_data='Pause RMS')
         submenu_item3 = types.InlineKeyboardButton('Update_SL', callback_data='Update_SL')
       #  submenu_item4 = types.InlineKeyboardButton('index', callback_data='RMS')
         submenu_markup.add( submenu_item1,  submenu_item2,  submenu_item3)
@@ -378,7 +378,7 @@ def callback_handler(call):
 # Script setting up for the code
         
         while True:
-            if call.data=='end':
+            if call.data!='SHOW_KPI' or end:
                  break
             #except requests.exceptions.ConnectionError as e:
             show=update_strategy_performance(scrip, sl)
@@ -421,7 +421,9 @@ def callback_handler(call):
         if exit=='0':
                 bot.send_message(call.message.chat.id, 'RMS Stopped with Exiting the Position')
         
-                              
+        elif call.data=='Pause RMS':
+                bot.send_message(call.message.chat.id, 'Pause RMS System as per Requirement')
+                exit='0'
     bot.send_message(message.chat.id, 'Main Menu', reply_markup=markup)
 bot.infinity_polling(timeout=10, long_polling_timeout = 5)
                 
