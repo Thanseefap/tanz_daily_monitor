@@ -53,8 +53,8 @@ def Riskmanager(script,percent):
                 df1=df1[df1['exch']=='NFO']
             else:
                 df1=df1[df1['exch']=='NFO'][df1['tsym'].str.contains(script)]
-            df1[['urmtom', 'rpnl','netqty','netavgprc']] = df1[['urmtom', 'rpnl','netqty','netavgprc']].apply(pd.to_numeric)
-            df1['net']=df1['netqty']*df1['netavgprc']
+            df1[['urmtom', 'rpnl','netqty','netavgprc','lp']] = df1[['urmtom', 'rpnl','netqty','netavgprc','lp']].apply(pd.to_numeric)
+            df1['net']=df1['netqty']*df1['lp']
             Net_credit=df1['net'].sum()*-1
             booked_pl=df1['rpnl'].sum()
             un_real_pl=df1['urmtom'].sum()
@@ -209,16 +209,6 @@ def index_select(message):
     
     bot.send_message(message.chat.id, 'Index Selection', reply_markup=markup)
        
-@bot.message_handler(commands=['index'])
-def sl_update(message):
-    bot.send_message(message.chat.id, 'Select the index: FIN BANK or ALL:')
-    bot.register_next_step_handler(message, update_sl)
-
-def update_sl(message): 
-    chat_id = message.chat.id
-    global sl
-    sl = float(message.text)
-    bot.send_message(message.chat.id, f'SL has been set to {sl}')
 
 @bot.message_handler(commands=['sl'])       
 def sl_update(message):
@@ -257,7 +247,7 @@ def perform_login(message):
     client=shoonya(twofa=otp,client_id='2')
     api=client.login()
     print(api)
-    if type(api)==str:
+    if api is None or type(api)==str:
            bot.send_message(message.chat.id, api)
     else:
            bot.send_message(message.chat.id, 'Logged In')
@@ -387,6 +377,8 @@ def callback_handler(call):
 # Script setting up for the code
         
         while True:
+            if call.data=='end':
+                 break
             #except requests.exceptions.ConnectionError as e:
             show=update_strategy_performance(scrip, sl)
             if show[0]=='No':
@@ -411,8 +403,8 @@ def callback_handler(call):
                 
                             
                 data = {
-                    'RMS Vaues': ['Fixed SL', '% P/L', 'Net Profit','Net Credit','SL in Cash','Booked PL','Un realised PL'],
-                    'Values': [stop_loss,Net_PL,CURRENT,Net_credit,sl_in_cash,show[5],show[6]],
+                    'RMS Vaues': ['Fixed SL', '% P/L','Profit Booking %', 'Net Profit','Net Credit','SL in Cash','Booked PL','Un realised PL'],
+                    'Values': [stop_loss,Net_PL,profit_b,CURRENT,Net_credit,sl_in_cash,show[5],show[6]],
                      
                 }
                 
