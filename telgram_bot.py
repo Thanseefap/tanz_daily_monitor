@@ -418,8 +418,8 @@ def callback_handler(call):
            #print('checker1')
            # if exit=='0':
             #    break
-        if exit=='0':
-                bot.send_message(call.message.chat.id, 'RMS Stopped with Exiting the Position')
+     ##   if exit=='0':
+       ##         bot.send_message(call.message.chat.id, 'RMS Stopped with Exiting the Position')
         
         elif call.data=='Pause RMS':
                 bot.send_message(call.message.chat.id, 'Pause RMS System as per Requirement')
