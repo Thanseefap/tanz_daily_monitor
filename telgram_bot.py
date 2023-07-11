@@ -187,7 +187,8 @@ def start(message):
     item2 = types.InlineKeyboardButton('Holding', callback_data='Profit Booking')
     item4 = types.InlineKeyboardButton('Position', callback_data='Position')
     item3 = types.InlineKeyboardButton('RMS', callback_data='RMS')
-    markup.add(item1, item2, item3, item4)
+    item5 = types.InlineKeyboardButton(' Profit Booking', callback_data='Profit Booking')
+    markup.add(item1, item2, item3, item4,item5)
     try :
           api is None  
     except NameError:
