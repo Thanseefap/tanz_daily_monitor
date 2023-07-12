@@ -374,9 +374,12 @@ def callback_handler(call):
        
     ## make changesin th shpw kpi for taking scrip along with operation       
     elif call.data=='SHOW_KPI':
- #        bot.send_message(call.message.chat.id, 'Show KPI')
+ #      bot.send_message(call.message.chat.id, 'Show KPI')
 # Script setting up for the code
-        
+        if call.data=='Pause RMS':
+                bot.send_message(call.message.chat.id, 'Pause RMS System as per Requirement)
+                exit='0'
+                break
         while True:
             if call.data!='SHOW_KPI' or end:
                  break
@@ -421,9 +424,7 @@ def callback_handler(call):
      ##   if exit=='0':
        ##         bot.send_message(call.message.chat.id, 'RMS Stopped with Exiting the Position')
         
-        elif call.data=='Pause RMS':
-                bot.send_message(call.message.chat.id, 'Pause RMS System as per Requirement')
-                exit='0'
+       
     bot.send_message(message.chat.id, 'Main Menu', reply_markup=markup)
 bot.infinity_polling(timeout=10, long_polling_timeout = 5)
                 
