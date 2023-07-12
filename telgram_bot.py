@@ -376,13 +376,12 @@ def callback_handler(call):
     elif call.data=='SHOW_KPI':
  #      bot.send_message(call.message.chat.id, 'Show KPI')
 # Script setting up for the code
-        if call.data=='Pause RMS':
+        
+        while True:
+            if call.data=='Pause RMS':
                 bot.send_message(call.message.chat.id, 'Pause RMS System as per Requirement')
                 exit='0'
                 break
-        while True:
-            if call.data!='SHOW_KPI' or end:
-                 break
             #except requests.exceptions.ConnectionError as e:
             show=update_strategy_performance(scrip, sl)
             if show[0]=='No':
