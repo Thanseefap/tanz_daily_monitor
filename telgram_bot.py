@@ -166,19 +166,8 @@ def logout(message):
     else:
         bot.send_message(message.chat.id, 'API is unable to Logged Out')
                         
-#end method stopping the RMS System
-@bot.message_handler(commands=['end'])
-def end(message):
-    bot.send_message(message.chat.id, 'Enter 0 for exit:')
-    bot.register_next_step_handler(message, update_exit)
-def update_exit(message):
-    chat_id = message.chat.id
-    global exit
-    exit = message.text
-    if exit=='0':
-        bot.send_message(message.chat.id, 'Set Exit 0')
-    else :
-        bot.send_message(message.chat.id, 'Reset Exit, Started RMS')
+
+
 @bot.message_handler(commands=['start'])
 def start(message):
     # Create the main menu with nested commands
@@ -209,6 +198,19 @@ def index_select(message):
     markup.add(item1, item2, item4)
     
     bot.send_message(message.chat.id, 'Index Selection', reply_markup=markup)
+
+
+#end method stopping the RMS System
+@bot.message_handler(commands=['end'])
+def index_select(message):
+    # Create the main menu with nested commands
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    item1 = types.InlineKeyboardButton('Yes', callback_data='YES')
+    item2 = types.InlineKeyboardButton('No', callback_data='NO')
+
+    markup.add(item1, item2)
+    
+    bot.send_message(message.chat.id, 'RMS Stop', reply_markup=markup)
        
 
 @bot.message_handler(commands=['sl'])       
@@ -243,6 +245,8 @@ def login_shoonya(message):
 
 def perform_login(message):
     global api
+    global exit
+    exit='NO'
     chat_id = message.chat.id
     otp = message.text
     client=shoonya(twofa=otp,client_id='2')
@@ -293,7 +297,14 @@ def callback_handler(call):
         #global scrip
         scrip='BANK'
         bot.send_message(call.message.chat.id, 'Index: BANK NIFTY')
-        
+    elif call.data=='YES':
+        #global scrip
+        exit='YES'
+        bot.send_message(call.message.chat.id, 'RMS STOPPING')
+    elif call.data=='NO':
+        #global scrip
+        exit='NO'
+        bot.send_message(call.message.chat.id, 'RMS Restart')   
     elif call.data=='Profit Booking':
         df1=pd.DataFrame(api.get_positions())
         if df1.shape[0]==0:
@@ -327,7 +338,7 @@ def callback_handler(call):
             df1=pd.DataFrame(api.get_positions())
             if df1.shape[0]==0:
                 bot.send_message(call.message.chat.id, 'There is No Position ')
-                if exit==0:
+                if exit=='YES':
                      bot.send_message(call.message.chat.id, f'RMS - Not on run, fixed SL  :{sl} and Index : {scrip}')
                 else: 
                      bot.send_message(call.message.chat.id, f'RMS - Running with fixed SL as : {sl} and Index : {scrip}')
@@ -349,7 +360,7 @@ def callback_handler(call):
                 #send_dataframe_as_table(call.message.chat.id, grouped)
                 send_dataframe(call.message.chat.id,grouped)
                 
-                if exit==0:
+                if exit=='YES':
                      bot.send_message(call.message.chat.id, f'RMS - Not on run, fixed SL  :{sl} and Index : {scrip}')
                 else: 
                      bot.send_message(call.message.chat.id, f'RMS - Running with fixed SL as : {sl} and Index : {scrip}')
@@ -378,9 +389,11 @@ def callback_handler(call):
 # Script setting up for the code
         
         while True:
+            if exit=='YES':
+                          break
             if call.data=='Pause RMS':
                 bot.send_message(call.message.chat.id, 'Pause RMS System as per Requirement')
-                exit='0'
+                exit='YES'
                 break
             #except requests.exceptions.ConnectionError as e:
             show=update_strategy_performance(scrip, sl)
@@ -393,7 +406,7 @@ def callback_handler(call):
                 for i in ret['norenordno'][ret['status']=='OPEN']:
                     x=api.cancel_order(orderno=i)
                     
-                exit='0'
+                exit='YES'
                 break
             else:
                 Net_credit = show[4]
@@ -418,8 +431,7 @@ def callback_handler(call):
                 #bot.send_message(call.message.chat.id, 'Set Stop Loss :' +str(stop_loss)+'& Net P/L : '+str(Net_PL)+'  & Net Credit Amount = '+str(Net_credit))
                 time.sleep(15)  # Delay for 15 seconds
            #print('checker1')
-           # if exit=='0':
-            #    break
+         
      ##   if exit=='0':
        ##         bot.send_message(call.message.chat.id, 'RMS Stopped with Exiting the Position')
         
