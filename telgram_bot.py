@@ -377,7 +377,7 @@ def callback_handler(call):
  #      bot.send_message(call.message.chat.id, 'Show KPI')
 # Script setting up for the code
         if call.data=='Pause RMS':
-                bot.send_message(call.message.chat.id, 'Pause RMS System as per Requirement)
+                bot.send_message(call.message.chat.id, 'Pause RMS System as per Requirement')
                 exit='0'
                 break
         while True:
