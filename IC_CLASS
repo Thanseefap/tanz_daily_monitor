@@ -1,3 +1,8 @@
+import COMMON_FUNCTION 
+import place_order from  COMMON_FUNCTION 
+import pandas as pd
+import sqlite3
+from datetime import datetime
 
 
 class Iron_condor(object):
@@ -31,7 +36,7 @@ class Iron_condor(object):
 
         x=self.api.get_option_chain(exchange="NFO", tradingsymbol=f"BANKNIFTY{expiry}C{ATM_STRIKE}", strikeprice=ATM_STRIKE,count=10)
         x=pd.DataFrame(x['values'])
-        x['lp'] = x.apply(price_for_optionchain, axis=1)
+        x['lp'] = x.apply(COMMON_FUNCTION.price_for_optionchain, axis=1)
         x['strprc'] = x['strprc'].astype(float)
         
 
