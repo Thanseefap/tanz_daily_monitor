@@ -318,7 +318,7 @@ def callback_handler(call):
         ce=df1[df1['CALL_PUT']=='CE'][df1['lp']==df['lp'].max()].iloc[0][0]
         pe=df1[df1['CALL_PUT']=='PE'][df1['lp']==df['lp'].max()].iloc[0][0]
         if scrip=='BANK':
-            quantity=25
+            quantity=15
         else:
             quantity=40
         api.place_order(buy_or_sell='B'
