@@ -202,7 +202,7 @@ def index_select(message):
 
 #end method stopping the RMS System
 @bot.message_handler(commands=['end'])
-def index_select(message):
+def end(message):
     # Create the main menu with nested commands
     markup = types.InlineKeyboardMarkup(row_width=2)
     item1 = types.InlineKeyboardButton('Yes', callback_data='YES')
