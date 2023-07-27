@@ -263,6 +263,7 @@ def perform_login(message):
 @bot.callback_query_handler(func=lambda call: True )
 def callback_handler(call):
     global scrip
+    global exit
     if call.data == 'Login Details':
     # Echo the user's message
                 margin=api.get_limits()
