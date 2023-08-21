@@ -7,9 +7,10 @@ global profit_b
 global client_id
 
 scrip='ALL'
-sl=0.15
+sl=-0.5
 profit_b=1
-client_id='2'
+client_id='1'
+exit='NO'
 
 from NorenRestApiPy.NorenApi import  NorenApi
 import logging
@@ -144,7 +145,7 @@ def update_strategy_performance(script, stop_loss):
  
 
 
-bot = telebot.TeleBot('6277515369:AAET-z6EumKmJ2hgredC3akclYWrBdyG8n0')
+bot = telebot.TeleBot('6280168009:AAG1iX2uiRV4zTH-03QC73PgXqsU85dEAEA')
 LOGIN_OTP = 'login_otp'
 SL_UPDATE = 'sl_update'
 
@@ -183,19 +184,20 @@ def logout(message):
     else:
         bot.send_message(message.chat.id, 'API is unable to Logged Out')
                         
+
+
 #end method stopping the RMS System
 @bot.message_handler(commands=['end'])
 def end(message):
-    bot.send_message(message.chat.id, 'Enter 0 for exit:')
-    bot.register_next_step_handler(message, update_exit)
-def update_exit(message):
-    chat_id = message.chat.id
-    global exit
-    exit = message.text
-    if exit=='0':
-        bot.send_message(message.chat.id, 'Set Exit 0')
-    else :
-        bot.send_message(message.chat.id, 'Reset Exit, Started RMS')
+    # Create the main menu with nested commands
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    item1 = types.InlineKeyboardButton('Yes', callback_data='YES')
+    item2 = types.InlineKeyboardButton('No', callback_data='NO')
+
+    markup.add(item1, item2)
+    
+    bot.send_message(message.chat.id, 'RMS Stop', reply_markup=markup)
+               
 @bot.message_handler(commands=['start'])
 def start(message):
     # Create the main menu with nested commands
@@ -228,12 +230,12 @@ def index_select(message):
      
     
 @bot.message_handler(commands=['client'])
-def index_select(message):
+def client_select(message):
     # Create the main menu with nested commands
     markup = types.InlineKeyboardMarkup(row_width=3)
-    item1 = types.InlineKeyboardButton('1', callback_data='Portfolio')
-    item2 = types.InlineKeyboardButton('2', callback_data='BANK')
-    item4 = types.InlineKeyboardButton('3', callback_data='FIN')
+    item1 = types.InlineKeyboardButton('MAIN', callback_data='1')
+    item2 = types.InlineKeyboardButton('SMALL', callback_data='2')
+    item4 = types.InlineKeyboardButton('OTH', callback_data='3')
     markup.add(item1, item2, item4)
     
     bot.send_message(message.chat.id, 'Client Selection', reply_markup=markup)
@@ -273,6 +275,8 @@ def login_shoonya(message):
 
 def perform_login(message):
     global api
+    global exit
+    exit='NO'
     chat_id = message.chat.id
     otp = message.text
     client=shoonya(twofa=otp,client_id=client_id)
@@ -289,6 +293,7 @@ def perform_login(message):
 @bot.callback_query_handler(func=lambda call: True )
 def callback_handler(call):
     global scrip
+    global exit
     if call.data == 'Login Details':
     # Echo the user's message
                 margin=api.get_limits()
@@ -321,7 +326,14 @@ def callback_handler(call):
         bot.send_message(call.message.chat.id, 'Index: RMS Small')
 
 
-
+    elif call.data=='YES':
+        #global scrip
+        exit='YES'
+        bot.send_message(call.message.chat.id, 'RMS STOPPING')
+    elif call.data=='NO':
+        #global scrip
+        exit='NO'
+        bot.send_message(call.message.chat.id, 'RMS Restart') 
 
     elif call.data=='Portfolio':
         #global scrip
@@ -421,6 +433,14 @@ def callback_handler(call):
 # Script setting up for the code
         
         while True:
+            print(exit)
+            if exit=='YES':
+                          break
+            #if call.data=='Pause RMS':
+            #    bot.send_message(call.message.chat.id, 'Pause RMS System as per Requirement')
+             #   exit='YES'
+            #    break
+            #except requests.exceptions.ConnectionError as e:
             #except requests.exceptions.ConnectionError as e:
             show=update_strategy_performance(scrip, sl)
             if show[0]=='No':
@@ -432,15 +452,16 @@ def callback_handler(call):
                 for i in ret['norenordno'][ret['status']=='OPEN']:
                     x=api.cancel_order(orderno=i)
                     
-                exit='0'
-                break
+                exit='YES'
+                break    
+             
             else:
                 Net_credit = show[4]
                 Net_PL = show[0]
                 CURRENT = show[1]
                 stop_loss = show[2]
                 margin = round(show[3]/100000)
-                sl_in_cash = round(stop_loss * (margin / 100),2)
+                sl_in_cash = round(stop_loss * (margin *100000/ 100),2)
                 call_profit=show[7]
                 put_profit=show[8]
                 ce_lots=show[9]
