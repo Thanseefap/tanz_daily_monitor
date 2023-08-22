@@ -9,7 +9,11 @@ global client_id
 scrip='ALL'
 sl=-0.5
 profit_b=1
+<<<<<<< HEAD:telgram_bot.py
 client_id='1'
+=======
+client_id='2'
+>>>>>>> 9aebec48aa5bc972d4c41d482b2bef178dcd89c8:rms.py
 exit='NO'
 
 from NorenRestApiPy.NorenApi import  NorenApi

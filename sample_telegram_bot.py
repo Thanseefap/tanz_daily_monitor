@@ -92,6 +92,10 @@ def on_callback_query(msg):
         bot.sendMessage(from_id,'Enter /start to start again')
        	   
 bot = telepot.Bot('6277515369:AAET-z6EumKmJ2hgredC3akclYWrBdyG8n0')
+<<<<<<< HEAD
+=======
+
+>>>>>>> 9aebec48aa5bc972d4c41d482b2bef178dcd89c8
 MessageLoop(bot, {'chat': handle,
                   'callback_query': on_callback_query}).run_as_thread()
 print ('Listening ...')

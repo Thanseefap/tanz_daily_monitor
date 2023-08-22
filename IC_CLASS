@@ -1,0 +1,146 @@
+import COMMON_FUNCTION 
+import place_order from  COMMON_FUNCTION 
+import pandas as pd
+import sqlite3
+from datetime import datetime
+
+
+class Iron_condor(object):
+      
+    
+    #make the api call
+
+
+    def __init__(self, scrip,api):
+            self.scrip = scrip
+            self.api=api
+            
+    def entry(self,expiry, credit_per=0.4,symm=0.0,strike_diff=200):
+            
+        self.expiry = expiry
+        # Percent Credit taking for entry...
+        
+        self.credit_per = credit_per
+          ## Varriabble for symmetry
+        self.symm = symm
+         #Srtike difference for hedging
+        self.strike_diff = strike_diff
+        
+        global position_token
+        
+
+        qRes = self.api.get_quotes('NSE', 'Nifty Bank')
+        ATM_STRIKE=strike_selection(float(qRes['c']))
+        
+
+
+        x=self.api.get_option_chain(exchange="NFO", tradingsymbol=f"BANKNIFTY{expiry}C{ATM_STRIKE}", strikeprice=ATM_STRIKE,count=10)
+        x=pd.DataFrame(x['values'])
+        x['lp'] = x.apply(COMMON_FUNCTION.price_for_optionchain, axis=1)
+        x['strprc'] = x['strprc'].astype(float)
+        
+
+
+
+        condition = ((x['optt'] == 'CE') & (x['strprc'] >= ATM_STRIKE)) |  ((x['optt'] == 'PE') & (x['strprc'] <= ATM_STRIKE))
+        x_filtered= x[condition]
+       
+    
+        test_x=x_filtered[x_filtered['optt']=='CE'][['strprc','lp']]
+        test_y=x_filtered[x_filtered['optt']=='PE'][['strprc','lp']]
+
+        # & (c_x['strprc_x']< c_x['strprc_y']
+        c_x = pd.merge(test_x, test_x, how='cross')
+        #c_x[(c_x['strprc_y']-c_x['strprc_x']==0.0)]
+        c_x['Checker']=c_x['strprc_y']==c_x['strprc_x']
+        c_x=c_x[~c_x['Checker']]
+        c_x['differ']=c_x['strprc_x']- c_x['strprc_y']
+        f_x=c_x[c_x['differ']==-1*strike_diff]
+        
+        # Put option setting rules
+        
+        c_x = pd.merge(test_y, test_y, how='cross')
+        #c_x[(c_x['strprc_y']-c_x['strprc_x']==0.0)]
+        c_x['Checker']=c_x['strprc_y']==c_x['strprc_x']
+        c_x=c_x[~c_x['Checker']]
+        c_x['differ']=c_x['strprc_x']- c_x['strprc_y']
+        f_y=c_x[c_x['differ']==strike_diff]
+        
+        
+        c_x = pd.merge(f_x, f_y, how='cross')
+        #c_x['unique_y']==c_x['unique_x']
+        c_x['%_credit']=(c_x['lp_x_x']+c_x['lp_x_y']-c_x['lp_y_x']-c_x['lp_y_y'])/200
+        c_x['credit']=(c_x['lp_x_x']+c_x['lp_x_y']-c_x['lp_y_x']-c_x['lp_y_y'])
+        c_x['sell_differ']=c_x['strprc_x_x']-c_x['strprc_x_y']
+        c_x['ATM_DIFF']=(c_x['strprc_x_x']-ATM_STRIKE-(ATM_STRIKE-c_x['strprc_x_y']))
+        c_x_final=c_x[c_x['%_credit']>=credit_per][c_x['ATM_DIFF']==symm*100]
+        
+        c_x_final=c_x_final[c_x_final['sell_differ']==c_x_final['sell_differ'].max()]
+        #print(c_x_final)
+       # sell_call=c_x_final['strprc_x_x'].iloc[0]
+       # sell_put=c_x_final['strprc_x_y'].iloc[0]
+       # buy_call=c_x_final['strprc_y_x'].iloc[0]
+       # buy_put=c_x_final['strprc_y_y'].iloc[0]
+        
+        #token for checking the current MTM
+        sell_call_t=x_filtered[x_filtered['strprc']==c_x_final['strprc_x_y'].iloc[0]]['tsym'].iloc[0]
+        sell_put_t=x_filtered[x_filtered['strprc']==c_x_final['strprc_y_y'].iloc[0]]['tsym'].iloc[0]
+        buy_call_t=x_filtered[x_filtered['strprc']==c_x_final['strprc_x_x'].iloc[0]]['tsym'].iloc[0]
+        buy_put_t=x_filtered[x_filtered['strprc']==c_x_final['strprc_y_x'].iloc[0]]['tsym'].iloc[0]
+        
+        
+        
+
+        sell_call=x_filtered[x_filtered['strprc']==c_x_final['strprc_x_y'].iloc[0]]['tsym'].iloc[0]
+        sell_put=x_filtered[x_filtered['strprc']==c_x_final['strprc_y_y'].iloc[0]]['tsym'].iloc[0]
+        buy_call=x_filtered[x_filtered['strprc']==c_x_final['strprc_x_x'].iloc[0]]['tsym'].iloc[0]
+        buy_put=x_filtered[x_filtered['strprc']==c_x_final['strprc_y_x'].iloc[0]]['tsym'].iloc[0]
+        
+
+        position_token={'sell_call':[sell_call_t],'sell_put':[sell_put_t],'buy_call':[buy_call_t],'buy_put':[buy_put_t]}
+# create a database connection
+        
+        conn = sqlite3.connect('IRON_CONDOR_TEST.db')
+        
+        df = pd.DataFrame(position_token)
+        
+      #  df['time']= datetime.today()
+        # Table name to be deleted
+        table_name = 'POSITION_TEST'
+        
+        # SQL query to delete the table if it exists
+        delete_query = f"DROP TABLE IF EXISTS {table_name};"
+        
+        # Execute the query to delete the table
+        conn.execute(delete_query)
+        
+        # Commit the changes to the database
+        conn.commit()
+        ## IC UNIQUE IDENTIFICATION CODE
+       # df['IC_NO']=1 
+        df=pd.DataFrame(position_token)
+        df['credit']=c_x_final['credit'].iloc[0]
+        df['%_credit']= c_x_final['%_credit'].iloc[0]
+        df.to_sql('POSITION_TEST', conn, if_exists='append', index=True)
+              
+            
+        conn.close()
+                
+       
+       # position_enter=[sell_call,sell_put,buy_call,buy_put]
+       # Placing order for all the positions 
+    ## Need to add a condition for order success
+        x=place_order('B',buy_call,1)
+        if x=='REJECTED':
+            return 'BUY CALL Rejected'
+        x['entry_price']
+        x=place_order('B',buy_put,1)
+        if x=='REJECTED':
+            return 'BUY PUT Rejected'
+        place_order('S',sell_call,1)
+        if x=='REJECTED':
+            return 'SELL CALL Rejected' 
+        place_order('S',sell_put,1)
+        if x=='REJECTED':
+            return 'SELL PUT Rejected'
+        return 'Order Placed Succefully'
