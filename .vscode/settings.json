@@ -1,0 +1,6 @@
+{
+    "python.analysis.extraPaths": [
+        "./python-telegram-bot"
+    ],
+    "python.terminal.executeInFileDir": true
+}

@@ -1,12 +1,24 @@
 
 global scrip
+global api
+global sl
+global exit
+global profit_b
+global client_id
+
+scrip='ALL'
+sl=-0.5
+profit_b=1
+client_id='1'
+exit='NO'
+
 from NorenRestApiPy.NorenApi import  NorenApi
 import logging
 import requests
 import json,os
 import time,datetime
 from time import sleep
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 from io import BytesIO
 import logging
 from telegram import InputMediaPhoto
@@ -15,87 +27,16 @@ from datetime import datetime
 import telebot
 import numpy as np
 from tabulate import tabulate
+
 import pandas as pd
 from telebot import types
-#from login import shoonya
+from login import shoonya
 from datetime import datetime
 
 
 
-
-class shoonya(object):
-      
-    _root={"login": "/QuickAuth", "fund": "/Limits", "position": "/PositionBook", "orderbook": "/OrderBook", "tradebook": "/TradeBook", "holding": "/Holdings", 
-             "order": '/PlaceOrder', "modifyorder": '/ModifyOrder', "cancelorder": '/CancelOrder', "exitorder": '/ExitSNOOrder', "singleorderhistory": '/SingleOrdHist',
-             "searchscrip": '/SearchScrip', "scripinfo": '/GetSecurityInfo', "getquote": '/GetQuotes', "hist_data": "/TPSeries", "option": "/GetOptionChain"}
-    
-
         
-
-    #make the api call
-
-
-    def __init__(self, twofa: str = None, client_id: str = None):
-        if client_id=='1':
-            self.uid = 'FA127352'
-            self.pwd = 'Haya@2020'
-            self.factor2 = twofa
-            self.imei = '60-45-CB-C5-A7-49'
-            self.app_key = 'a2e650f7d642a160d3d428f6795c0b20'
-            self.vc = 'FA127352_U'
-        elif client_id=='2':
-            self.uid = 'FA92112'
-            self.pwd = 'Tanz@2020'
-            self.factor2 = twofa
-            self.imei = '60-45-CB-C5-A7-49'
-            self.app_key = '3314839374e9c76e933188930cef5bdd'
-            #self.wss = None
-            self.vc='FA92112_U'
-        else:
-            self.uid = 'FA76209'
-            self.pwd = 'Strangle@24'
-            self.factor2 = twofa
-            self.imei = '60-45-CB-C5-A7-49'
-            self.app_key = '6aa1e19981a9f1eeef8b2a96598ef3e3'
-            #self.wss = None
-            self.vc='FA76209_U'
-                        
-
-            
-            
-
-    def login(self):
-           
-            api = None
-    
-            class ShoonyaApiPy(NorenApi):
-               def __init__(self):
-                    NorenApi.__init__(self, host='https://api.shoonya.com/NorenWClientTP/', websocket='wss://api.shoonya.com/NorenWSTP/')        
-                    global api
-                    api = self
-            
-            
-       
-         
-        #enable dbug to see request and responses
-            logging.basicConfig(level=logging.DEBUG)
-            
-            #start of our program
-            api = ShoonyaApiPy()
-        
-            ret = api.login(userid=self.uid, password=self.pwd, twoFA=self.factor2, vendor_code=self.vc, api_secret=self.app_key, imei=self.imei)
-            
-            if ret is not None :   
-                if ret['stat']=='Ok':
-                    self.api = api
-                    print("Logged In.")
-                    return self.api
-                else:
-                    return f"Unable to Login. Reason:{res.text}"
-            else:
-                return 'login  error'
-                print('login  error')
-                    
+  
 
 
 
@@ -129,44 +70,65 @@ def Riskmanager(script,percent):
             margin=api.get_limits()
             used_margin=float(margin['marginused'])
             p=(mtm/used_margin)*100
+            print('check 1')
+            call_profit=-1*df1['net'][df1['tsym'].str.contains('C')].sum()
+            put_profit=-1*df1['net'][df1['tsym'].str.contains('P')].sum()
+            print('check 2')
+            ce_lots=len(df1['net'][df1['tsym'].str.contains('C')])
+            pe_lots=len(df1['net'][df1['tsym'].str.contains('P')])
+
+
         except AttributeError:
             show=['No']
+            print('check 4')
             return show
-        
+        def exit_position(qty,sym,sell_buy):
+             api.place_order(buy_or_sell=sell_buy
+                                , product_type='M',
+                                    exchange='NFO', tradingsymbol=symp, 
+                                    quantity=abs(int(qty)), discloseqty=0,price_type='MKT', #price=0.1,# trigger_price=199.50,
+                                    retention='DAY', remarks='my_algo_order')
+             
+        df=df1
+        symbols=df[df['netqty']!=0][['tsym','netqty']]
+        symbols=symbols.sort_values( by='netqty')    # ascending=False
         if p<percent:
-            
-            df=df1
-            symbols=df[df['netqty']!=0][['tsym','netqty']]
-            symbols.sort_values( by='netqty',
-            ascending=False)
-            
+            print('check 3')
             for i in range(len(symbols)):
                 symp=symbols.iloc[i][0]
                 if float(symbols.iloc[i][1])<0:
-                    api.place_order(buy_or_sell='B'
-                                , product_type='M',
-                                    exchange='NFO', tradingsymbol=symp, 
-                                    quantity=abs(int(symbols.iloc[i][1])), discloseqty=0,price_type='MKT', #price=0.1,# trigger_price=199.50,
-                                    retention='DAY', remarks='my_algo_order')
+                    exit_position(symbols.iloc[i][1],symp,'B')
                 else:
-                    api.place_order(buy_or_sell='S'
-                                , product_type='M',
-                                    exchange='NFO', tradingsymbol=symp, 
-                                    quantity=abs(int(symbols.iloc[i][1])), discloseqty=0,price_type='MKT', #price=0.1,# trigger_price=199.50,
-                                    retention='DAY', remarks='my_algo_order')
+                    exit_position(symbols.iloc[i][1],symp,'S')
                 
             show=['No']
             
             return show
          
-        show=[p,mtm,percent,used_margin,Net_credit,booked_pl,un_real_pl]
-        show= [ round(elem,2) for elem in show ]
-        return show
+        elif p>=profit_b:
+             print('check 6')
+             for i in range(len(symbols)):
+                symp=symbols.iloc[i][0]
+                if float(symbols.iloc[i][1])<0:
+                    exit_position(symbols.iloc[i][1],symp,'B')
+                else:
+                    exit_position(symbols.iloc[i][1],symp,'S')
+                
+             show=['No']
+            
+             return show
+        else:
+             show=[p,mtm,percent,used_margin,Net_credit,booked_pl,un_real_pl,call_profit,put_profit,ce_lots,pe_lots]
+             show= [ round(elem,2) for elem in show ]
+             return show  
+    
+         
         
         
 def update_strategy_performance(script, stop_loss):
     # code to update the performance of the trading strategy
     show = Riskmanager(script, stop_loss)
+    print(show)
     Net_credit = show[4]
     Net_PL = show[0]
     CURRENT = show[1]
@@ -180,21 +142,17 @@ def update_strategy_performance(script, stop_loss):
 
 
 
+ 
 
 
-global api
-global SL
-global scrip
-global exit
-
-bot = telebot.TeleBot('6066484216:AAFmM3QTtaaR1JDIee71Vs3Aqq95DQNn9yk')
+bot = telebot.TeleBot('6280168009:AAG1iX2uiRV4zTH-03QC73PgXqsU85dEAEA')
 LOGIN_OTP = 'login_otp'
 SL_UPDATE = 'sl_update'
 
 
 # function to message the data as table 
 
-time.sleep(1)
+
 def send_dataframe(update,df):
     # Create a sample DataFrame
     # Convert the DataFrame to an image
@@ -226,19 +184,20 @@ def logout(message):
     else:
         bot.send_message(message.chat.id, 'API is unable to Logged Out')
                         
+
+
 #end method stopping the RMS System
 @bot.message_handler(commands=['end'])
 def end(message):
-    bot.send_message(message.chat.id, 'Enter 0 for exit:')
-    bot.register_next_step_handler(message, update_exit)
-def update_exit(message):
-    chat_id = message.chat.id
-    global exit
-    exit = message.text
-    if exit=='0':
-        bot.send_message(message.chat.id, 'Set Exit 0')
-    else :
-        bot.send_message(message.chat.id, 'Reset Exit, Started RMS')
+    # Create the main menu with nested commands
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    item1 = types.InlineKeyboardButton('Yes', callback_data='YES')
+    item2 = types.InlineKeyboardButton('No', callback_data='NO')
+
+    markup.add(item1, item2)
+    
+    bot.send_message(message.chat.id, 'RMS Stop', reply_markup=markup)
+               
 @bot.message_handler(commands=['start'])
 def start(message):
     # Create the main menu with nested commands
@@ -268,19 +227,23 @@ def index_select(message):
     markup.add(item1, item2, item4)
     
     bot.send_message(message.chat.id, 'Index Selection', reply_markup=markup)
-       
-@bot.message_handler(commands=['index'])
-def sl_update(message):
-    bot.send_message(message.chat.id, 'Select the index: FIN BANK or ALL:')
-    bot.register_next_step_handler(message, update_sl)
+     
+    
+@bot.message_handler(commands=['client'])
+def client_select(message):
+    # Create the main menu with nested commands
+    markup = types.InlineKeyboardMarkup(row_width=3)
+    item1 = types.InlineKeyboardButton('MAIN', callback_data='1')
+    item2 = types.InlineKeyboardButton('SMALL', callback_data='2')
+    item4 = types.InlineKeyboardButton('OTH', callback_data='3')
+    markup.add(item1, item2, item4)
+    
+    bot.send_message(message.chat.id, 'Client Selection', reply_markup=markup)
+     
 
-def update_sl(message): 
-    chat_id = message.chat.id
-    global sl
-    sl = float(message.text)
-    bot.send_message(message.chat.id, f'SL has been set to {sl}')
 
-@bot.message_handler(commands=['SL'])
+
+@bot.message_handler(commands=['sl'])       
 def sl_update(message):
     bot.send_message(message.chat.id, 'Enter SL:')
     bot.register_next_step_handler(message, update_sl)
@@ -291,16 +254,32 @@ def update_sl(message):
     sl = float(message.text)
     bot.send_message(message.chat.id, f'SL has been set to {sl}')
 
-@bot.message_handler(commands=['Login'])
+# profit booking addition
+@bot.message_handler(commands=['profit_booking'])       
+def psl_update(message):
+    bot.send_message(message.chat.id, 'Enter profit_booking % :')
+    bot.register_next_step_handler(message, p_update_sl)
+
+def p_update_sl(message): 
+    chat_id = message.chat.id
+    global profit_b
+    profit_b = float(message.text)
+    bot.send_message(message.chat.id, f'Profit booking has been set to {profit_b}')
+
+
+@bot.message_handler(commands=['login'])
 def login_shoonya(message):
     bot.send_message(message.chat.id, 'Enter OTP:')
     print(message)
     bot.register_next_step_handler(message, perform_login)
 
 def perform_login(message):
+    global api
+    global exit
+    exit='NO'
     chat_id = message.chat.id
     otp = message.text
-    client=shoonya(twofa=otp,client_id='2')
+    client=shoonya(twofa=otp,client_id=client_id)
     api=client.login()
     print(api)
     if type(api)==str:
@@ -314,6 +293,7 @@ def perform_login(message):
 @bot.callback_query_handler(func=lambda call: True )
 def callback_handler(call):
     global scrip
+    global exit
     if call.data == 'Login Details':
     # Echo the user's message
                 margin=api.get_limits()
@@ -335,6 +315,26 @@ def callback_handler(call):
           #    print(sl)
           #    bot.send_message(call.message.chat.id, 'Set SL')
    #
+    elif call.data=='1':
+        #global scrip
+        client_id='1'
+        bot.send_message(call.message.chat.id, 'Client: RMS Main')
+        
+    elif call.data=='2':
+        #global scrip
+        client_id='2'
+        bot.send_message(call.message.chat.id, 'Index: RMS Small')
+
+
+    elif call.data=='YES':
+        #global scrip
+        exit='YES'
+        bot.send_message(call.message.chat.id, 'RMS STOPPING')
+    elif call.data=='NO':
+        #global scrip
+        exit='NO'
+        bot.send_message(call.message.chat.id, 'RMS Restart') 
+
     elif call.data=='Portfolio':
         #global scrip
         scrip='ALL'
@@ -433,6 +433,14 @@ def callback_handler(call):
 # Script setting up for the code
         
         while True:
+            print(exit)
+            if exit=='YES':
+                          break
+            #if call.data=='Pause RMS':
+            #    bot.send_message(call.message.chat.id, 'Pause RMS System as per Requirement')
+             #   exit='YES'
+            #    break
+            #except requests.exceptions.ConnectionError as e:
             #except requests.exceptions.ConnectionError as e:
             show=update_strategy_performance(scrip, sl)
             if show[0]=='No':
@@ -444,31 +452,35 @@ def callback_handler(call):
                 for i in ret['norenordno'][ret['status']=='OPEN']:
                     x=api.cancel_order(orderno=i)
                     
-                exit='0'
-                break
+                exit='YES'
+                break    
+             
             else:
                 Net_credit = show[4]
                 Net_PL = show[0]
                 CURRENT = show[1]
                 stop_loss = show[2]
-                margin = show[3]
-                sl_in_cash = round(stop_loss * (margin / 100),2)
+                margin = round(show[3]/100000)
+                sl_in_cash = round(stop_loss * (margin *100000/ 100),2)
+                call_profit=show[7]
+                put_profit=show[8]
+                ce_lots=show[9]
+                pe_lots=show[10]
       
                 
                             
                 data = {
-                    'RMS Vaues': ['Fixed SL', '% P/L', 'Net Profit','Net Credit','SL in Cash','Booked PL','Un realised PL'],
-                    'Values': [stop_loss,Net_PL,CURRENT,Net_credit,sl_in_cash,show[5],show[6]],
+                    'RMS Vaues': ['Fixed SL | Margin', '% P/L | Profit Book % ', 'Net Profit','Net Credit','SL in Cash','Booked PL','Un realised PL','CE Prem | Lot','PE Prem | Lot'],
+                    'Values': [f"{stop_loss} | {margin} in lac",f"{Net_PL} | {profit_b}",CURRENT,Net_credit,sl_in_cash,show[5],show[6],f"{call_profit} | {ce_lots}",f"{put_profit} | {pe_lots}"]
                      
                 }
-                
                 # Create a DataFrame from the dictionary
                 df = pd.DataFrame(data)
-                send_dataframe(call.message.chat.id,df)
+                send_dataframe_as_table(call.message.chat.id,df)
                # send_dataframe_as_table(call.message.chat.id, df)
                 #bot.send_message(call.message.chat.id, 'Set Stop Loss :' +str(stop_loss)+'& Net P/L : '+str(Net_PL)+'  & Net Credit Amount = '+str(Net_credit))
                 time.sleep(15)  # Delay for 15 seconds
-                print('checker1')
+           #print('checker1')
            # if exit=='0':
             #    break
         if exit=='0':
@@ -476,7 +488,7 @@ def callback_handler(call):
         
                               
     bot.send_message(message.chat.id, 'Main Menu', reply_markup=markup)
-bot.infinity_polling(timeout=10, long_polling_timeout = 10)
+bot.infinity_polling(timeout=10, long_polling_timeout = 5)
                 
 
 
