@@ -9,7 +9,7 @@ global client_id
 scrip='ALL'
 sl=-0.5
 profit_b=1
-client_id='1'
+client_id='2'
 exit='NO'
 
 from NorenRestApiPy.NorenApi import  NorenApi
