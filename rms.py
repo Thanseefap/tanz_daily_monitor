@@ -5,15 +5,13 @@ global sl
 global exit
 global profit_b
 global client_id
+global expiry
+
 
 scrip='ALL'
 sl=-0.5
 profit_b=1
-<<<<<<< HEAD:telgram_bot.py
-client_id='1'
-=======
 client_id='2'
->>>>>>> 9aebec48aa5bc972d4c41d482b2bef178dcd89c8:rms.py
 exit='NO'
 
 from NorenRestApiPy.NorenApi import  NorenApi
@@ -64,6 +62,9 @@ def Riskmanager(script,percent):
                 df1=df1[df1['exch']=='NFO']
             else:
                 df1=df1[df1['exch']=='NFO'][df1['tsym'].str.contains(script)]
+                ## Added Expiry
+                df1=df1[df1['exch']=='NFO'][df1['tsym'].str.contains(expiry)]
+                    
             df1[['urmtom', 'rpnl','netqty','netavgprc']] = df1[['urmtom', 'rpnl','netqty','netavgprc']].apply(pd.to_numeric)
             df1['net']=df1['netqty']*df1['netavgprc']
             Net_credit=df1['net'].sum()*-1
@@ -239,13 +240,40 @@ def client_select(message):
     markup = types.InlineKeyboardMarkup(row_width=3)
     item1 = types.InlineKeyboardButton('MAIN', callback_data='1')
     item2 = types.InlineKeyboardButton('SMALL', callback_data='2')
-    item4 = types.InlineKeyboardButton('OTH', callback_data='3')
+    item4 = types.InlineKeyboardButton('MAIN_1', callback_data='7')
     markup.add(item1, item2, item4)
     
     bot.send_message(message.chat.id, 'Client Selection', reply_markup=markup)
      
 
 
+# --------------expiry addition -------------#
+
+
+@bot.message_handler(commands=['expiry'])
+def expiry(message):
+    df1=pd.DataFrame(api.get_positions())
+    temp=[]
+    for i in df1['token']:
+        x=api.get_security_info('NFO', i)
+        temp.append(x['exd'])
+    y=set(temp)
+    for  i  in y:
+        bot.send_message(message.chat.id, i)
+
+    bot.send_message(message.chat.id, 'Enter expiry :')
+    print(message)
+    bot.register_next_step_handler(message, perform_expiry)
+
+def perform_expiry(message):
+    global expiry
+    
+    
+    chat_id = message.chat.id
+    x = message.text
+    expiry =x.replace("-","")
+   
+    bot.send_message(message.chat.id, f"Set Exipry is {expiry}")
 
 @bot.message_handler(commands=['sl'])       
 def sl_update(message):
@@ -329,7 +357,10 @@ def callback_handler(call):
         client_id='2'
         bot.send_message(call.message.chat.id, 'Index: RMS Small')
 
-
+    elif call.data=='7':
+        #global scrip
+        client_id='7'
+        bot.send_message(call.message.chat.id, 'Index: RMS New MAIN')
     elif call.data=='YES':
         #global scrip
         exit='YES'
