@@ -149,6 +149,7 @@ def update_strategy_performance(script, stop_loss):
 
  
 
+### Small Bot
 
 bot = telebot.TeleBot('6280168009:AAG1iX2uiRV4zTH-03QC73PgXqsU85dEAEA')
 LOGIN_OTP = 'login_otp'
@@ -156,21 +157,6 @@ SL_UPDATE = 'sl_update'
 
 
 # function to message the data as table 
-
-
-def send_dataframe(update,df):
-    # Create a sample DataFrame
-    # Convert the DataFrame to an image
-    fig, ax = plt.subplots()
-    ax.axis('off')
-    ax.table(cellText=df.values, colLabels=df.columns, cellLoc='center', loc='center')
-    plt.tight_layout()
-    buffer = BytesIO()
-    plt.savefig(buffer, format='png')
-    buffer.seek(0)
-
-    # Send the DataFrame image as a photo message
-    bot.send_photo(chat_id=update, photo=buffer)
 
 def send_dataframe_as_table(chat_id, dataframe):
                         # Convert DataFrame to string with tabulate
@@ -228,8 +214,9 @@ def index_select(message):
     markup = types.InlineKeyboardMarkup(row_width=3)
     item1 = types.InlineKeyboardButton('Portfolio', callback_data='Portfolio')
     item2 = types.InlineKeyboardButton('BANK', callback_data='BANK')
+    item3 = types.InlineKeyboardButton('NIFTY', callback_data='NIFTY')
     item4 = types.InlineKeyboardButton('FIN', callback_data='FIN')
-    markup.add(item1, item2, item4)
+    markup.add(item1, item2, item3,item4)
     
     bot.send_message(message.chat.id, 'Index Selection', reply_markup=markup)
      
@@ -374,7 +361,10 @@ def callback_handler(call):
         #global scrip
         scrip='ALL'
         bot.send_message(call.message.chat.id, 'Index: Portfolio')
-        
+    elif call.data=='NIFTY':
+        #global scrip
+        scrip='NIFTY'
+        bot.send_message(call.message.chat.id, 'Index: NIFTY')
     elif call.data=='FIN':
         #global scrip
         scrip='FIN'
@@ -437,7 +427,7 @@ def callback_handler(call):
                 grouped = df1.groupby(['Instrument','Buy_Sell']).sum()
                 grouped[['Instrument', 'Buy_Sell']]=grouped.index
                 #send_dataframe_as_table(call.message.chat.id, grouped)
-                send_dataframe(call.message.chat.id,grouped)
+                
                 
                 if exit==0:
                      bot.send_message(call.message.chat.id, f'RMS - Not on run, fixed SL  :{sl} and Index : {scrip}')
@@ -522,12 +512,5 @@ def callback_handler(call):
                 bot.send_message(call.message.chat.id, 'RMS Stopped with Exiting the Position')
         
                               
-    bot.send_message(message.chat.id, 'Main Menu', reply_markup=markup)
+    
 bot.infinity_polling(timeout=10, long_polling_timeout = 5)
-                
-
-
-
-
-
-
