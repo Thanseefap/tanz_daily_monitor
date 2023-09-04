@@ -6,13 +6,17 @@ global exit
 global profit_b
 global client_id
 global expiry
+global PNL_TYPE
 
 
 scrip='ALL'
 sl=-0.5
 profit_b=1
-client_id='2'
+client_id='1'
 exit='NO'
+expiry='NO'
+PNL_TYPE='T_PNL'
+
 
 from NorenRestApiPy.NorenApi import  NorenApi
 import logging
@@ -62,25 +66,51 @@ def Riskmanager(script,percent):
                 df1=df1[df1['exch']=='NFO']
             else:
                 df1=df1[df1['exch']=='NFO'][df1['tsym'].str.contains(script)]
+
+                ## Taking care of NIFTY as BANKNIFTY contains NIFTY in tsym name
+                if script=='NIFTY':
+                     df1=df1[~df1['tsym'].str.contains('BANK')]
+                     df1=df1[~df1['tsym'].str.contains('FIN')]
                 ## Added Expiry
-                df1=df1[df1['exch']=='NFO'][df1['tsym'].str.contains(expiry)]
+                if expiry !='NO':
+                    df1=df1[df1['exch']=='NFO'][df1['tsym'].str.contains(expiry)]
                     
-            df1[['urmtom', 'rpnl','netqty','netavgprc']] = df1[['urmtom', 'rpnl','netqty','netavgprc']].apply(pd.to_numeric)
-            df1['net']=df1['netqty']*df1['netavgprc']
+            df1[['urmtom', 'rpnl','netqty','netavgprc','lp']] = df1[['urmtom', 'rpnl','netqty','netavgprc','lp']].apply(pd.to_numeric)
+            df1['net']=df1['netqty']*df1['lp']
             Net_credit=df1['net'].sum()*-1
+
             booked_pl=df1['rpnl'].sum()
             un_real_pl=df1['urmtom'].sum()
-            mtm=booked_pl+un_real_pl
+
+            ## Ading PNL Selection method for 3PM Entry
+            if PNL_TYPE=='T_PNL':
+               mtm=booked_pl+un_real_pl
+            else:
+                mtm=un_real_pl
+            
             #Getting total margin used
             margin=api.get_limits()
             used_margin=float(margin['marginused'])
             p=(mtm/used_margin)*100
             print('check 1')
-            call_profit=-1*df1['net'][df1['tsym'].str.contains('C')].sum()
-            put_profit=-1*df1['net'][df1['tsym'].str.contains('P')].sum()
-            print('check 2')
-            ce_lots=len(df1['net'][df1['tsym'].str.contains('C')])
-            pe_lots=len(df1['net'][df1['tsym'].str.contains('P')])
+
+
+            call_prem=-1*df1['net'][df1['tsym'].str.contains('C')].sum()
+            put_prem=-1*df1['net'][df1['tsym'].str.contains('P')].sum()
+
+            ce_b_lots=df1['netqty'][df1['tsym'].str.contains('C')][df1['netqty']>0].sum()
+            ce_s_lots=df1['netqty'][df1['tsym'].str.contains('C')][df1['netqty']<0].sum()
+            pe_b_lots=df1['netqty'][df1['tsym'].str.contains('P')][df1['netqty']>0].sum()
+            pe_s_lots=df1['netqty'][df1['tsym'].str.contains('P')][df1['netqty']<0].sum()
+
+
+            print(ce_b_lots,ce_s_lots,pe_b_lots,pe_s_lots)
+
+
+
+
+
+
 
 
         except AttributeError:
@@ -111,7 +141,7 @@ def Riskmanager(script,percent):
             return show
          
         elif p>=profit_b:
-             print('check 6')
+            # print('check 6')
              for i in range(len(symbols)):
                 symp=symbols.iloc[i][0]
                 if float(symbols.iloc[i][1])<0:
@@ -122,8 +152,9 @@ def Riskmanager(script,percent):
              show=['No']
             
              return show
-        else:
-             show=[p,mtm,percent,used_margin,Net_credit,booked_pl,un_real_pl,call_profit,put_profit,ce_lots,pe_lots]
+        else:      
+             show=[p,mtm,percent,used_margin,Net_credit,
+                   booked_pl,un_real_pl,call_prem,ce_s_lots,ce_b_lots,put_prem,pe_s_lots,pe_b_lots]
              show= [ round(elem,2) for elem in show ]
              return show  
     
@@ -220,7 +251,20 @@ def index_select(message):
     
     bot.send_message(message.chat.id, 'Index Selection', reply_markup=markup)
      
+
+
+@bot.message_handler(commands=['RMS_TYPE'])
+def pnl_select(message):
+    # Create the main menu with nested commands
+    markup = types.InlineKeyboardMarkup(row_width=3)
+    item1 = types.InlineKeyboardButton('TOTAL_PNL', callback_data='T_PNL')
+    item2 = types.InlineKeyboardButton('CURRENT_PNL', callback_data='C_PNL')
     
+    markup.add(item1, item2 )
+    
+    bot.send_message(message.chat.id, 'pnl Selection', reply_markup=markup)
+     
+
 @bot.message_handler(commands=['client'])
 def client_select(message):
     # Create the main menu with nested commands
@@ -237,20 +281,26 @@ def client_select(message):
 # --------------expiry addition -------------#
 
 
+
 @bot.message_handler(commands=['expiry'])
 def expiry(message):
     df1=pd.DataFrame(api.get_positions())
-    temp=[]
-    for i in df1['token']:
-        x=api.get_security_info('NFO', i)
-        temp.append(x['exd'])
-    y=set(temp)
-    for  i  in y:
-        bot.send_message(message.chat.id, i)
+    if df1.shape[0]==0:
+         bot.send_message(message.chat.id, 'Enter expiry :DD-MMM-YY')
+         bot.register_next_step_handler(message, perform_expiry)
+    else:
+            temp=[]
+            
+            for i in df1['token']:
+                x=api.get_security_info('NFO', i)
+                temp.append(x['exd'])
+            y=set(temp)
+            for  i  in y:
+                bot.send_message(message.chat.id, i)
 
-    bot.send_message(message.chat.id, 'Enter expiry :')
-    print(message)
-    bot.register_next_step_handler(message, perform_expiry)
+            bot.send_message(message.chat.id, 'Enter expiry :DD-MMM-YY')
+            print(message)
+            bot.register_next_step_handler(message, perform_expiry)
 
 def perform_expiry(message):
     global expiry
@@ -261,6 +311,7 @@ def perform_expiry(message):
     expiry =x.replace("-","")
    
     bot.send_message(message.chat.id, f"Set Exipry is {expiry}")
+
 
 @bot.message_handler(commands=['sl'])       
 def sl_update(message):
@@ -348,6 +399,17 @@ def callback_handler(call):
         #global scrip
         client_id='7'
         bot.send_message(call.message.chat.id, 'Index: RMS New MAIN')
+
+    elif call.data=='T_PNL':
+        #global scrip
+        PNL_TYPE='T_PNL'
+        bot.send_message(call.message.chat.id, 'PNL: Based on Total PNL')
+        
+    elif call.data=='C_PNL':
+        #global scrip
+        PNL_TYPE='C_PNL'
+        bot.send_message(call.message.chat.id, 'PNL: Based on Current PNL')
+        
     elif call.data=='YES':
         #global scrip
         exit='YES'
@@ -371,7 +433,7 @@ def callback_handler(call):
         bot.send_message(call.message.chat.id, 'Index: FIN')
     elif call.data=='BANK':
         #global scrip
-        scrip='BANK'
+        scrip='BANKNIFTY'
         bot.send_message(call.message.chat.id, 'Index: BANK NIFTY')
         
     elif call.data=='Profit Booking':
@@ -387,7 +449,7 @@ def callback_handler(call):
         ce=df1[df1['CALL_PUT']=='CE'][df1['lp']==df['lp'].max()].iloc[0][0]
         pe=df1[df1['CALL_PUT']=='PE'][df1['lp']==df['lp'].max()].iloc[0][0]
         if scrip=='BANK':
-            quantity=25
+            quantity=15
         else:
             quantity=40
         api.place_order(buy_or_sell='B'
@@ -487,16 +549,20 @@ def callback_handler(call):
                 stop_loss = show[2]
                 margin = round(show[3]/100000)
                 sl_in_cash = round(stop_loss * (margin *100000/ 100),2)
-                call_profit=show[7]
-                put_profit=show[8]
-                ce_lots=show[9]
-                pe_lots=show[10]
+                call_prem=show[7]
+                call_s_lot=show[8]
+                call_b_lot=show[9]
+                put_prem=show[10]
+                put_s_lot=show[11]
+                put_b_lot=show[12]
+               
+                
       
                 
                             
                 data = {
-                    'RMS Vaues': ['Fixed SL | Margin', '% P/L | Profit Book % ', 'Net Profit','Net Credit','SL in Cash','Booked PL','Un realised PL','CE Prem | Lot','PE Prem | Lot'],
-                    'Values': [f"{stop_loss} | {margin} in lac",f"{Net_PL} | {profit_b}",CURRENT,Net_credit,sl_in_cash,show[5],show[6],f"{call_profit} | {ce_lots}",f"{put_profit} | {pe_lots}"]
+                    'RMS Vaues': ['Fixed SL | Margin', '% P/L | Profit Book % ', 'Net Profit','Net Credit','SL in Cash','Booked PL','Un realised PL','CE Prem |  S  | B Lot','PE Prem | S | B Lot'],
+                    'Values': [f"{stop_loss} | {margin} in lac",f"{Net_PL} | {profit_b}",CURRENT,Net_credit,sl_in_cash,show[5],show[6],f"{call_prem} | {call_s_lot} | {call_b_lot}",f"{put_prem} | {put_s_lot} | {put_b_lot}"]
                      
                 }
                 # Create a DataFrame from the dictionary
