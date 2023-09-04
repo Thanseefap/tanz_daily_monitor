@@ -83,11 +83,13 @@ def Riskmanager(script,percent):
             un_real_pl=df1['urmtom'].sum()
 
             ## Ading PNL Selection method for 3PM Entry
+            print(PNL_TYPE)
             if PNL_TYPE=='T_PNL':
                mtm=booked_pl+un_real_pl
+               print(mtm)
             else:
                 mtm=un_real_pl
-            
+                print(mtm)
             #Getting total margin used
             margin=api.get_limits()
             used_margin=float(margin['marginused'])
@@ -95,13 +97,13 @@ def Riskmanager(script,percent):
             print('check 1')
 
 
-            call_prem=-1*df1['net'][df1['tsym'].str.contains('C')].sum()
-            put_prem=-1*df1['net'][df1['tsym'].str.contains('P')].sum()
-
-            ce_b_lots=df1['netqty'][df1['tsym'].str.contains('C')][df1['netqty']>0].sum()
-            ce_s_lots=df1['netqty'][df1['tsym'].str.contains('C')][df1['netqty']<0].sum()
-            pe_b_lots=df1['netqty'][df1['tsym'].str.contains('P')][df1['netqty']>0].sum()
-            pe_s_lots=df1['netqty'][df1['tsym'].str.contains('P')][df1['netqty']<0].sum()
+            call_prem=-1*df1['net'][df1['dname'].str.contains('CE')].sum()
+            put_prem=-1*df1['net'][df1['dname'].str.contains('PE')].sum()
+            
+            ce_b_lots=df1['netqty'][df1['dname'].str.contains('CE')][df1['netqty']>0].sum()
+            ce_s_lots=df1['netqty'][df1['dname'].str.contains('CE')][df1['netqty']<0].sum()
+            pe_b_lots=df1['netqty'][df1['dname'].str.contains('PE')][df1['netqty']>0].sum()
+            pe_s_lots=df1['netqty'][df1['dname'].str.contains('PE')][df1['netqty']<0].sum()
 
 
             print(ce_b_lots,ce_s_lots,pe_b_lots,pe_s_lots)
@@ -226,7 +228,7 @@ def start(message):
     markup = types.InlineKeyboardMarkup(row_width=3)
     item1 = types.InlineKeyboardButton('Login Details', callback_data='Login Details')
     item2 = types.InlineKeyboardButton('Holding', callback_data='Profit Booking')
-    item4 = types.InlineKeyboardButton('Position', callback_data='Position')
+    item4 = types.InlineKeyboardButton('Current Position', callback_data='POS')
     item3 = types.InlineKeyboardButton('RMS', callback_data='RMS')
     markup.add(item1, item2, item3, item4)
     try :
@@ -253,7 +255,7 @@ def index_select(message):
      
 
 
-@bot.message_handler(commands=['RMS_TYPE'])
+@bot.message_handler(commands=['pnl_type'])
 def pnl_select(message):
     # Create the main menu with nested commands
     markup = types.InlineKeyboardMarkup(row_width=3)
@@ -346,6 +348,8 @@ def login_shoonya(message):
 def perform_login(message):
     global api
     global exit
+    
+
     exit='NO'
     chat_id = message.chat.id
     otp = message.text
@@ -364,6 +368,7 @@ def perform_login(message):
 def callback_handler(call):
     global scrip
     global exit
+    global PNL_TYPE
     if call.data == 'Login Details':
     # Echo the user's message
                 margin=api.get_limits()
@@ -401,12 +406,12 @@ def callback_handler(call):
         bot.send_message(call.message.chat.id, 'Index: RMS New MAIN')
 
     elif call.data=='T_PNL':
-        #global scrip
+        #global PNL_TYPE
         PNL_TYPE='T_PNL'
         bot.send_message(call.message.chat.id, 'PNL: Based on Total PNL')
         
     elif call.data=='C_PNL':
-        #global scrip
+        #global PNL_TYPE
         PNL_TYPE='C_PNL'
         bot.send_message(call.message.chat.id, 'PNL: Based on Current PNL')
         
@@ -464,6 +469,10 @@ def callback_handler(call):
                                     retention='DAY', remarks='my_algo_order')
             
         bot.send_message(call.message.chat.id, 'Reduced Risk / Profit Booked by 1 lot')
+
+    elif call.data=='POS':
+         df1=pd.DataFrame(api.get_positions())
+         send_dataframe_as_table(call.message.chat.id,df1)
     elif call.data=='Position':
         
             df1=pd.DataFrame(api.get_positions())
