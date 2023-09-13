@@ -12,7 +12,7 @@ global PNL_TYPE
 scrip='ALL'
 sl=-0.5
 profit_b=1
-client_id='2'
+client_id='7'
 exit='NO'
 expiry='NO'
 PNL_TYPE='T_PNL'
