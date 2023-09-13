@@ -12,7 +12,7 @@ global PNL_TYPE
 scrip='ALL'
 sl=-0.5
 profit_b=1
-client_id='7'
+client_id='2'
 exit='NO'
 expiry='NO'
 PNL_TYPE='T_PNL'
@@ -261,7 +261,7 @@ def update_strategy_performance(script, stop_loss):
 
 ### Small Bot
 
-bot = telebot.TeleBot('6277515369:AAET-z6EumKmJ2hgredC3akclYWrBdyG8n0')
+bot = telebot.TeleBot('6280168009:AAG1iX2uiRV4zTH-03QC73PgXqsU85dEAEA')
 LOGIN_OTP = 'login_otp'
 SL_UPDATE = 'sl_update'
 
