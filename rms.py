@@ -6,6 +6,7 @@ global exit
 global profit_b
 global client_id
 global expiry
+global PNL_TYPE
 
 
 scrip='ALL'
@@ -14,7 +15,9 @@ profit_b=1
 client_id='2'
 exit='NO'
 expiry='NO'
+PNL_TYPE='T_PNL'
 
+import re
 from NorenRestApiPy.NorenApi import  NorenApi
 import logging
 import requests
@@ -52,7 +55,109 @@ from datetime import datetime
 
 #function for exiting all position
 ## Function which will return the percentage profit and exit if it's greater than stop loss
+#
+#Adjustment Expiry
+def adjustment(CALL_PUT,ACTION,LEVEL):
+        try :
+             
+            if api is None:
+                return 'Not Logged In'
+        except NameError:
+                return 'Not Logged In'
+        LEVEL=int(LEVEL)
+        df1=pd.DataFrame(api.get_positions())
+        if scrip=='BANK':
+             qRes = api.get_quotes('NSE', 'Nifty Bank')
+             spread=100
+             lot=15
+        elif scrip=='FIN':
+             qRes = api.get_quotes('NSE', 'Nifty Fin Services')
+             lot=40
+             spread=50
+        elif scrip=='NIFTY': 
+             qRes = api.get_quotes('NSE', 'Nifty 50')
+             lot=50
+             spread=50
+        else:
+             return 'ADJ Not Possible : STRIKE NOT SELECTED'
+        
+        
+
+        df1=df1[df1['exch']=='NFO'][df1['tsym'].str.contains(scrip)]
+        if scrip=='NIFTY':
+                     df1=df1[~df1['tsym'].str.contains('BANK')]
+                     df1=df1[~df1['tsym'].str.contains('FIN')]
+
+        df1[['symbol','expiry','Strike','CALL_PUT','err']]=df1['dname'].str.split(' ', expand=True)
+        
+        df1['current_strike']=qRes['lp']
+
+
+        df1[['current_strike','Strike','urmtom', 'rpnl','netqty','netavgprc','lp']] = df1[['current_strike','Strike','urmtom', 'rpnl','netqty','netavgprc','lp']].apply(pd.to_numeric)
+        
+   
+         #Defining CALL or PUT
+        if CALL_PUT=='C':
+          
+            df1['DIFF']=df1['Strike']-df1['current_strike']
+            df1=df1[df1['CALL_PUT']=='CE'][df1['netqty']<0]
+            if ACTION=='+':
+                 factor=-1*spread
+            elif  ACTION=='-' :
+                 factor=spread
+            else:
+                 factor=0
+
+
+        else:
+          
+            df1['DIFF']=df1['current_strike']-df1['Strike']
+            df1=df1[df1['CALL_PUT']=='PE'][df1['netqty']<0]
+            if ACTION=='+':
+                 factor=spread
+            elif  ACTION=='-' :
+                 factor=-1*spread
+            else:
+                 factor=0
+        df1=df1.sort_values( by='DIFF') 
+
+        # Defining Action that needs to be done
+
+        
+
+        tsym=df1['tsym'].iloc[LEVEL-1]
+   
+        
+        x=api.place_order(buy_or_sell='B'
+                                        , product_type='M',
+                                            exchange='NFO', tradingsymbol=tsym, 
+                                            quantity=1*lot, discloseqty=0,price_type='MKT', #price=0.1,# trigger_price=199.50,
+                                            retention='DAY', remarks='my_algo_order')
+        if factor==0:
+             return 'Reduced Position'+tsym
+        if x['stat']=='Ok':
+            tsym1=df1['symbol'].iloc[LEVEL-1]+df1['expiry'].iloc[LEVEL-1]+CALL_PUT+str(df1['Strike'].iloc[LEVEL-1]+factor)
+        
+            x=api.place_order(buy_or_sell='S'
+                                        , product_type='M',
+                                            exchange='NFO', tradingsymbol=tsym1, 
+                                            quantity=lot, discloseqty=0,price_type='MKT', #price=0.1,# trigger_price=199.50,
+                                            retention='DAY', remarks='my_algo_order')
+            if x['stat']=='Ok':
+                return f"Adjustment Done {tsym} changed to  {tsym1} "
+    
+
+
+
+
+
+
+
+
+
+
 def Riskmanager(script,percent):
+        
         margin=api.get_limits()
         used_margin=float(margin['marginused'])
         try :
@@ -63,8 +168,14 @@ def Riskmanager(script,percent):
                 df1=df1[df1['exch']=='NFO']
             else:
                 df1=df1[df1['exch']=='NFO'][df1['tsym'].str.contains(script)]
+
+                ## Taking care of NIFTY as BANKNIFTY contains NIFTY in tsym name
+                if script=='NIFTY':
+                     df1=df1[~df1['tsym'].str.contains('BANK')]
+                     df1=df1[~df1['tsym'].str.contains('FIN')]
                 ## Added Expiry
-                if expiry!='NO':
+              #  print(expiry)
+                if expiry !='NO':
                     df1=df1[df1['exch']=='NFO'][df1['tsym'].str.contains(expiry)]
                     
             df1[['urmtom', 'rpnl','netqty','netavgprc','lp']] = df1[['urmtom', 'rpnl','netqty','netavgprc','lp']].apply(pd.to_numeric)
@@ -73,7 +184,15 @@ def Riskmanager(script,percent):
 
             booked_pl=df1['rpnl'].sum()
             un_real_pl=df1['urmtom'].sum()
-            mtm=booked_pl+un_real_pl
+
+            ## Ading PNL Selection method for 3PM Entry
+            print(PNL_TYPE)
+            if PNL_TYPE=='T_PNL':
+               mtm=booked_pl+un_real_pl
+               print(mtm)
+            else:
+                mtm=un_real_pl
+                print(mtm)
             #Getting total margin used
             margin=api.get_limits()
             used_margin=float(margin['marginused'])
@@ -81,13 +200,13 @@ def Riskmanager(script,percent):
             print('check 1')
 
 
-            call_prem=-1*df1['net'][df1['tsym'].str.contains('C')].sum()
-            put_prem=-1*df1['net'][df1['tsym'].str.contains('P')].sum()
-
-            ce_b_lots=df1['netqty'][df1['tsym'].str.contains('C')][df1['netqty']>0].sum()
-            ce_s_lots=df1['netqty'][df1['tsym'].str.contains('C')][df1['netqty']<0].sum()
-            pe_b_lots=df1['netqty'][df1['tsym'].str.contains('P')][df1['netqty']>0].sum()
-            pe_s_lots=df1['netqty'][df1['tsym'].str.contains('P')][df1['netqty']<0].sum()
+            call_prem=-1*df1['net'][df1['dname'].str.contains('CE')].sum()
+            put_prem=-1*df1['net'][df1['dname'].str.contains('PE')].sum()
+            
+            ce_b_lots=df1['netqty'][df1['dname'].str.contains('CE')][df1['netqty']>0].sum()
+            ce_s_lots=df1['netqty'][df1['dname'].str.contains('CE')][df1['netqty']<0].sum()
+            pe_b_lots=df1['netqty'][df1['dname'].str.contains('PE')][df1['netqty']>0].sum()
+            pe_s_lots=df1['netqty'][df1['dname'].str.contains('PE')][df1['netqty']<0].sum()
 
 
             print(ce_b_lots,ce_s_lots,pe_b_lots,pe_s_lots)
@@ -127,7 +246,7 @@ def Riskmanager(script,percent):
             return show
          
         elif p>=profit_b:
-             print('check 6')
+            # print('check 6')
              for i in range(len(symbols)):
                 symp=symbols.iloc[i][0]
                 if float(symbols.iloc[i][1])<0:
@@ -139,7 +258,8 @@ def Riskmanager(script,percent):
             
              return show
         else:      
-             show=[p,mtm,percent,used_margin,Net_credit,booked_pl,un_real_pl,[call_pre,],put_profit,ce_lots,pe_lots]
+             show=[p,mtm,percent,used_margin,Net_credit,
+                   booked_pl,un_real_pl,call_prem,ce_s_lots,ce_b_lots,put_prem,pe_s_lots,pe_b_lots]
              show= [ round(elem,2) for elem in show ]
              return show  
     
@@ -161,12 +281,16 @@ def update_strategy_performance(script, stop_loss):
     # Modify the code here to perform the necessary actions with the values, such as saving to a file or database.
      
 
+#6155748648:AAFpOUSJ51lWtMNMeWFztTVXjTcjgju-P64 Semiks bot
 
-
+ 
 ## Main BOT 6277515369:AAET-z6EumKmJ2hgredC3akclYWrBdyG8n0
 ### Small Bot 6280168009:AAG1iX2uiRV4zTH-03QC73PgXqsU85dEAEA
 
 
+
+
+### Small Bot
 
 bot = telebot.TeleBot('6277515369:AAET-z6EumKmJ2hgredC3akclYWrBdyG8n0')
 LOGIN_OTP = 'login_otp'
@@ -211,8 +335,8 @@ def start(message):
     # Create the main menu with nested commands
     markup = types.InlineKeyboardMarkup(row_width=3)
     item1 = types.InlineKeyboardButton('Login Details', callback_data='Login Details')
-    item2 = types.InlineKeyboardButton('Holding', callback_data='Profit Booking')
-    item4 = types.InlineKeyboardButton('Position', callback_data='Position')
+    item2 = types.InlineKeyboardButton('Adjustment', callback_data='Adj')
+    item4 = types.InlineKeyboardButton('Current Position', callback_data='POS')
     item3 = types.InlineKeyboardButton('RMS', callback_data='RMS')
     markup.add(item1, item2, item3, item4)
     try :
@@ -237,7 +361,20 @@ def index_select(message):
     
     bot.send_message(message.chat.id, 'Index Selection', reply_markup=markup)
      
+
+
+@bot.message_handler(commands=['pnl_type'])
+def pnl_select(message):
+    # Create the main menu with nested commands
+    markup = types.InlineKeyboardMarkup(row_width=3)
+    item1 = types.InlineKeyboardButton('TOTAL_PNL', callback_data='T_PNL')
+    item2 = types.InlineKeyboardButton('CURRENT_PNL', callback_data='C_PNL')
     
+    markup.add(item1, item2 )
+    
+    bot.send_message(message.chat.id, 'pnl Selection', reply_markup=markup)
+     
+
 @bot.message_handler(commands=['client'])
 def client_select(message):
     # Create the main menu with nested commands
@@ -263,6 +400,7 @@ def expiry(message):
          bot.register_next_step_handler(message, perform_expiry)
     else:
             temp=[]
+            
             for i in df1['token']:
                 x=api.get_security_info('NFO', i)
                 temp.append(x['exd'])
@@ -319,25 +457,33 @@ def perform_login(message):
     global api
     global exit
     global expiry
+
+
     expiry='NO'
     exit='NO'
     chat_id = message.chat.id
     otp = message.text
     client=shoonya(twofa=otp,client_id=client_id)
     api=client.login()
-    print(api)
-    if type(api)==str:
-           bot.send_message(message.chat.id, api)
+
+   
+    if api is None:
+         bot.send_message(message.chat.id, 'Login Failed')
     else:
-           bot.send_message(message.chat.id, 'Logged In')
+         bot.send_message(message.chat.id, 'Login In')
     
     
+    #bot.send_message(chat_id, 'Logged In')
+
+
+
     #bot.send_message(chat_id, 'Logged In')
 
 @bot.callback_query_handler(func=lambda call: True )
 def callback_handler(call):
     global scrip
     global exit
+    global PNL_TYPE
     if call.data == 'Login Details':
     # Echo the user's message
                 margin=api.get_limits()
@@ -359,7 +505,40 @@ def callback_handler(call):
           #    print(sl)
           #    bot.send_message(call.message.chat.id, 'Set SL')
    #
+    elif call.data=='Adj':
+        markup = types.InlineKeyboardMarkup(row_width=4)
+
+        item1 = types.InlineKeyboardButton('ADJ|+C1', callback_data='ADJ|+C1')
+        item2 = types.InlineKeyboardButton('ADJ|+C2', callback_data='ADJ|+C2')
+        item3 = types.InlineKeyboardButton('ADJ|+C3', callback_data='ADJ|+C3')
+        item77 = types.InlineKeyboardButton('ADJ|+C4', callback_data='ADJ|+C4')
+
+        item4 = types.InlineKeyboardButton('ADJ|-C1', callback_data='ADJ|-C1')
+        item5 = types.InlineKeyboardButton('ADJ|-C2', callback_data='ADJ|-C2')
+        item6 = types.InlineKeyboardButton('ADJ|-C3', callback_data='ADJ|-C3')
+        item7 = types.InlineKeyboardButton('ADJ|-C4', callback_data='ADJ|-C4')
+
+        item8 = types.InlineKeyboardButton('ADJ|+P1', callback_data='ADJ|+P1')
+        item9 = types.InlineKeyboardButton('ADJ|+P2', callback_data='ADJ|+P2')
+        item11 = types.InlineKeyboardButton('ADJ|+P3', callback_data='ADJ|+P3')
+        item22 = types.InlineKeyboardButton('ADJ|+P4', callback_data='ADJ|+P4')
+
+        item33 = types.InlineKeyboardButton('ADJ|-P1', callback_data='ADJ|-P1')
+        item44 = types.InlineKeyboardButton('ADJ|-P2', callback_data='ADJ|-P2')
+        item55 = types.InlineKeyboardButton('ADJ|-P3', callback_data='ADJ|-P3')
+        item66= types.InlineKeyboardButton('ADJ|-P4', callback_data='ADJ|-P4')
+
+        markup.add(item1, item2, item3,item77,item4, item5, item6,item7, item8, item9,item11, item22, item33,item44, item55, item66)
+        
+        bot.send_message(call.message.chat.id, 'Adj Selection', reply_markup=markup)
+  
+
+    
+         
+         
+
     elif call.data=='1':
+    
         #global scrip
         client_id='1'
         bot.send_message(call.message.chat.id, 'Client: RMS Main')
@@ -373,6 +552,17 @@ def callback_handler(call):
         #global scrip
         client_id='7'
         bot.send_message(call.message.chat.id, 'Index: RMS New MAIN')
+
+    elif call.data=='T_PNL':
+        #global PNL_TYPE
+        PNL_TYPE='T_PNL'
+        bot.send_message(call.message.chat.id, 'PNL: Based on Total PNL')
+        
+    elif call.data=='C_PNL':
+        #global PNL_TYPE
+        PNL_TYPE='C_PNL'
+        bot.send_message(call.message.chat.id, 'PNL: Based on Current PNL')
+        
     elif call.data=='YES':
         #global scrip
         exit='YES'
@@ -396,7 +586,7 @@ def callback_handler(call):
         bot.send_message(call.message.chat.id, 'Index: FIN')
     elif call.data=='BANK':
         #global scrip
-        scrip='BANK'
+        scrip='BANKNIFTY'
         bot.send_message(call.message.chat.id, 'Index: BANK NIFTY')
         
     elif call.data=='Profit Booking':
@@ -412,7 +602,7 @@ def callback_handler(call):
         ce=df1[df1['CALL_PUT']=='CE'][df1['lp']==df['lp'].max()].iloc[0][0]
         pe=df1[df1['CALL_PUT']=='PE'][df1['lp']==df['lp'].max()].iloc[0][0]
         if scrip=='BANK':
-            quantity=25
+            quantity=15
         else:
             quantity=40
         api.place_order(buy_or_sell='B'
@@ -427,6 +617,10 @@ def callback_handler(call):
                                     retention='DAY', remarks='my_algo_order')
             
         bot.send_message(call.message.chat.id, 'Reduced Risk / Profit Booked by 1 lot')
+
+    elif call.data=='POS':
+         df1=pd.DataFrame(api.get_positions())
+         send_dataframe_as_table(call.message.chat.id,df1)
     elif call.data=='Position':
         
             df1=pd.DataFrame(api.get_positions())
@@ -466,6 +660,21 @@ def callback_handler(call):
     #   send='API Response: Status' + margin['stat']+'& the'+'cash used '+ margin['cash']
     #   bot.send_message(call.message.chat.id, send)
     #   return
+    
+    
+    elif call.data[:4]=='ADJ|':
+         
+         x=call.data
+         LEVEL=x[-1]
+         CALL_PUT=x[-2]
+         ACTION=x[-3]
+
+         result=adjustment(CALL_PUT,ACTION,LEVEL)
+         bot.send_message(call.message.chat.id, result)   
+
+
+
+
     elif call.data == 'RMS':
         # Create the submenu with nested commands
         submenu_markup = types.InlineKeyboardMarkup(row_width=2)
@@ -512,16 +721,20 @@ def callback_handler(call):
                 stop_loss = show[2]
                 margin = round(show[3]/100000)
                 sl_in_cash = round(stop_loss * (margin *100000/ 100),2)
-                call_profit=show[7]
-                put_profit=show[8]
-                ce_lots=show[9]
-                pe_lots=show[10]
+                call_prem=show[7]
+                call_s_lot=show[8]
+                call_b_lot=show[9]
+                put_prem=show[10]
+                put_s_lot=show[11]
+                put_b_lot=show[12]
+               
+                
       
                 
                             
                 data = {
-                    'RMS Vaues': ['Fixed SL | Margin', '% P/L | Profit Book % ', 'Net Profit','Net Credit','SL in Cash','Booked PL','Un realised PL','CE Prem | Lot','PE Prem | Lot'],
-                    'Values': [f"{stop_loss} | {margin} in lac",f"{Net_PL} | {profit_b}",CURRENT,Net_credit,sl_in_cash,show[5],show[6],f"{call_profit} | {ce_lots}",f"{put_profit} | {pe_lots}"]
+                    'RMS Vaues': ['Fixed SL | Margin', '% P/L | Net Profit ', 'Profit Book % | Cash','Net Credit','SL in Cash','Booked PL','Un realised PL','CE Prem |  S  | B Lot','PE Prem | S | B Lot'],
+                    'Values': [f"{stop_loss} | {margin} in lac",f"{Net_PL} | {CURRENT}",f"{profit_b} | {int(profit_b*margin*1000)}",Net_credit,sl_in_cash,show[5],show[6],f"{call_prem} | {call_s_lot} | {call_b_lot}",f"{put_prem} | {put_s_lot} | {put_b_lot}"]
                      
                 }
                 # Create a DataFrame from the dictionary
