@@ -17,7 +17,7 @@ exit='NO'
 expiry='NO'
 PNL_TYPE='T_PNL'
 
-
+import re
 from NorenRestApiPy.NorenApi import  NorenApi
 import logging
 import requests
@@ -58,40 +58,65 @@ from datetime import datetime
 #
 #Adjustment Expiry
 def adjustment(CALL_PUT,ACTION,LEVEL):
+        try :
+             
+            if api is None:
+                return 'Not Logged In'
+        except NameError:
+                return 'Not Logged In'
+        LEVEL=int(LEVEL)
+        df1=pd.DataFrame(api.get_positions())
+        if scrip=='BANK':
+             qRes = api.get_quotes('NSE', 'Nifty Bank')
+             spread=100
+             lot=15
+        elif scrip=='FIN':
+             qRes = api.get_quotes('NSE', 'Nifty Fin Services')
+             lot=40
+             spread=50
+        elif scrip=='NIFTY': 
+             qRes = api.get_quotes('NSE', 'Nifty 50')
+             lot=50
+             spread=50
+        else:
+             return 'ADJ Not Possible : STRIKE NOT SELECTED'
+        
         
 
-        df1=pd.DataFrame(api.get_positions())
-
         df1=df1[df1['exch']=='NFO'][df1['tsym'].str.contains(scrip)]
+        if scrip=='NIFTY':
+                     df1=df1[~df1['tsym'].str.contains('BANK')]
+                     df1=df1[~df1['tsym'].str.contains('FIN')]
 
         df1[['symbol','expiry','Strike','CALL_PUT','err']]=df1['dname'].str.split(' ', expand=True)
-        qRes = api.get_quotes('NSE', 'Nifty Bank')
+        
         df1['current_strike']=qRes['lp']
 
 
         df1[['current_strike','Strike','urmtom', 'rpnl','netqty','netavgprc','lp']] = df1[['current_strike','Strike','urmtom', 'rpnl','netqty','netavgprc','lp']].apply(pd.to_numeric)
         
-
+   
          #Defining CALL or PUT
         if CALL_PUT=='C':
-        
+          
             df1['DIFF']=df1['Strike']-df1['current_strike']
             df1=df1[df1['CALL_PUT']=='CE'][df1['netqty']<0]
             if ACTION=='+':
-                 factor=-100
+                 factor=-1*spread
             elif  ACTION=='-' :
-                 factor=100
+                 factor=spread
             else:
                  factor=0
 
 
         else:
+          
             df1['DIFF']=df1['current_strike']-df1['Strike']
             df1=df1[df1['CALL_PUT']=='PE'][df1['netqty']<0]
             if ACTION=='+':
-                 factor=100
+                 factor=spread
             elif  ACTION=='-' :
-                 factor=-100
+                 factor=-1*spread
             else:
                  factor=0
         df1=df1.sort_values( by='DIFF') 
@@ -101,24 +126,25 @@ def adjustment(CALL_PUT,ACTION,LEVEL):
         
 
         tsym=df1['tsym'].iloc[LEVEL-1]
-        print(tsym)
+   
+        
         x=api.place_order(buy_or_sell='B'
                                         , product_type='M',
                                             exchange='NFO', tradingsymbol=tsym, 
-                                            quantity=1, discloseqty=0,price_type='MKT', #price=0.1,# trigger_price=199.50,
+                                            quantity=1*lot, discloseqty=0,price_type='MKT', #price=0.1,# trigger_price=199.50,
                                             retention='DAY', remarks='my_algo_order')
         if factor==0:
-             return 'Reduced Position'
+             return 'Reduced Position'+tsym
         if x['stat']=='Ok':
-            tsym=df1['symbol'].iloc[0]+df1['expiry'].iloc[0]+CALL_PUT+str(df1['Strike'].iloc[0]+factor)
-            print(tsym)
+            tsym1=df1['symbol'].iloc[LEVEL-1]+df1['expiry'].iloc[LEVEL-1]+CALL_PUT+str(df1['Strike'].iloc[LEVEL-1]+factor)
+        
             x=api.place_order(buy_or_sell='S'
                                         , product_type='M',
-                                            exchange='NFO', tradingsymbol=tsym, 
-                                            quantity=1, discloseqty=0,price_type='MKT', #price=0.1,# trigger_price=199.50,
+                                            exchange='NFO', tradingsymbol=tsym1, 
+                                            quantity=lot, discloseqty=0,price_type='MKT', #price=0.1,# trigger_price=199.50,
                                             retention='DAY', remarks='my_algo_order')
             if x['stat']=='Ok':
-                return 'Adjustment Done'
+                return f"Adjustment Done {tsym} changed to  {tsym1} "
     
 
 
@@ -255,9 +281,14 @@ def update_strategy_performance(script, stop_loss):
     # Modify the code here to perform the necessary actions with the values, such as saving to a file or database.
      
 
-
+#6155748648:AAFpOUSJ51lWtMNMeWFztTVXjTcjgju-P64 Semiks bot
 
  
+## Main BOT 6277515369:AAET-z6EumKmJ2hgredC3akclYWrBdyG8n0
+### Small Bot 6280168009:AAG1iX2uiRV4zTH-03QC73PgXqsU85dEAEA
+
+
+
 
 ### Small Bot
 
@@ -445,25 +476,7 @@ def perform_login(message):
     #bot.send_message(chat_id, 'Logged In')
 
 
-@bot.message_handler(commands=['Adj'])
-def adj_shoonya(message):
-    bot.send_message(message.chat.id, '')
-    print(message)
-    bot.register_next_step_handler(message, perform_adj)
 
-def perform_adj(message):
-    global api
-    global exit
-    global expiry
-
-
-    
-    if api is None:
-         bot.send_message(message.chat.id, 'Login Failed')
-    else:
-         bot.send_message(message.chat.id, 'Login In')
-    
-    
     #bot.send_message(chat_id, 'Logged In')
 
 @bot.callback_query_handler(func=lambda call: True )
@@ -492,7 +505,40 @@ def callback_handler(call):
           #    print(sl)
           #    bot.send_message(call.message.chat.id, 'Set SL')
    #
+    elif call.data=='Adj':
+        markup = types.InlineKeyboardMarkup(row_width=4)
+
+        item1 = types.InlineKeyboardButton('ADJ|+C1', callback_data='ADJ|+C1')
+        item2 = types.InlineKeyboardButton('ADJ|+C2', callback_data='ADJ|+C2')
+        item3 = types.InlineKeyboardButton('ADJ|+C3', callback_data='ADJ|+C3')
+        item77 = types.InlineKeyboardButton('ADJ|+C4', callback_data='ADJ|+C4')
+
+        item4 = types.InlineKeyboardButton('ADJ|-C1', callback_data='ADJ|-C1')
+        item5 = types.InlineKeyboardButton('ADJ|-C2', callback_data='ADJ|-C2')
+        item6 = types.InlineKeyboardButton('ADJ|-C3', callback_data='ADJ|-C3')
+        item7 = types.InlineKeyboardButton('ADJ|-C4', callback_data='ADJ|-C4')
+
+        item8 = types.InlineKeyboardButton('ADJ|+P1', callback_data='ADJ|+P1')
+        item9 = types.InlineKeyboardButton('ADJ|+P2', callback_data='ADJ|+P2')
+        item11 = types.InlineKeyboardButton('ADJ|+P3', callback_data='ADJ|+P3')
+        item22 = types.InlineKeyboardButton('ADJ|+P4', callback_data='ADJ|+P4')
+
+        item33 = types.InlineKeyboardButton('ADJ|-P1', callback_data='ADJ|-P1')
+        item44 = types.InlineKeyboardButton('ADJ|-P2', callback_data='ADJ|-P2')
+        item55 = types.InlineKeyboardButton('ADJ|-P3', callback_data='ADJ|-P3')
+        item66= types.InlineKeyboardButton('ADJ|-P4', callback_data='ADJ|-P4')
+
+        markup.add(item1, item2, item3,item77,item4, item5, item6,item7, item8, item9,item11, item22, item33,item44, item55, item66)
+        
+        bot.send_message(call.message.chat.id, 'Adj Selection', reply_markup=markup)
+  
+
+    
+         
+         
+
     elif call.data=='1':
+    
         #global scrip
         client_id='1'
         bot.send_message(call.message.chat.id, 'Client: RMS Main')
@@ -616,7 +662,15 @@ def callback_handler(call):
     #   return
     
     
+    elif call.data[:4]=='ADJ|':
          
+         x=call.data
+         LEVEL=x[-1]
+         CALL_PUT=x[-2]
+         ACTION=x[-3]
+
+         result=adjustment(CALL_PUT,ACTION,LEVEL)
+         bot.send_message(call.message.chat.id, result)   
 
 
 
