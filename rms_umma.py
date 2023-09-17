@@ -12,6 +12,7 @@ global PNL_TYPE
 scrip='ALL'
 sl=-0.5
 profit_b=1
+
 client_id='7'
 exit='NO'
 expiry='NO'
@@ -40,10 +41,13 @@ from login import shoonya
 from datetime import datetime
 
 
+## Main BOT 6277515369:AAET-z6EumKmJ2hgredC3akclYWrBdyG8n0
+### Small Bot 6280168009:AAG1iX2uiRV4zTH-03QC73PgXqsU85dEAEA
 
         
   
 
+bot = telebot.TeleBot('6280168009:AAG1iX2uiRV4zTH-03QC73PgXqsU85dEAEA')
 
 
 
@@ -57,7 +61,7 @@ from datetime import datetime
 ## Function which will return the percentage profit and exit if it's greater than stop loss
 #
 #Adjustment Expiry
-def adjustment(CALL_PUT,ACTION,LEVEL):
+def adjustment(CALL_PUT,ACTION,LEVEL,QTY):
         try :
              
             if api is None:
@@ -66,7 +70,7 @@ def adjustment(CALL_PUT,ACTION,LEVEL):
                 return 'Not Logged In'
         LEVEL=int(LEVEL)
         df1=pd.DataFrame(api.get_positions())
-        if scrip=='BANK':
+        if scrip=='BANKNIFTY':
              qRes = api.get_quotes('NSE', 'Nifty Bank')
              spread=100
              lot=15
@@ -79,9 +83,9 @@ def adjustment(CALL_PUT,ACTION,LEVEL):
              lot=50
              spread=50
         else:
-             return 'ADJ Not Possible : STRIKE NOT SELECTED'
+             return 'ADJ Not Possible : SCRIP NOT SELECTED'
         
-        
+        QTY=int(QTY)
 
         df1=df1[df1['exch']=='NFO'][df1['tsym'].str.contains(scrip)]
         if scrip=='NIFTY':
@@ -131,7 +135,7 @@ def adjustment(CALL_PUT,ACTION,LEVEL):
         x=api.place_order(buy_or_sell='B'
                                         , product_type='M',
                                             exchange='NFO', tradingsymbol=tsym, 
-                                            quantity=1*lot, discloseqty=0,price_type='MKT', #price=0.1,# trigger_price=199.50,
+                                            quantity=QTY*lot, discloseqty=0,price_type='MKT', #price=0.1,# trigger_price=199.50,
                                             retention='DAY', remarks='my_algo_order')
         if factor==0:
              return 'Reduced Position'+tsym
@@ -141,10 +145,10 @@ def adjustment(CALL_PUT,ACTION,LEVEL):
             x=api.place_order(buy_or_sell='S'
                                         , product_type='M',
                                             exchange='NFO', tradingsymbol=tsym1, 
-                                            quantity=lot, discloseqty=0,price_type='MKT', #price=0.1,# trigger_price=199.50,
+                                            quantity=QTY*lot, discloseqty=0,price_type='MKT', #price=0.1,# trigger_price=199.50,
                                             retention='DAY', remarks='my_algo_order')
             if x['stat']=='Ok':
-                return f"Adjustment Done {tsym} changed to  {tsym1} "
+                return f"Adjustment of {QTY} on {tsym}, changed to  {tsym1} "
     
 
 
@@ -484,6 +488,7 @@ def callback_handler(call):
     global scrip
     global exit
     global PNL_TYPE
+    print(call.data)
     if call.data == 'Login Details':
     # Echo the user's message
                 margin=api.get_limits()
@@ -508,25 +513,42 @@ def callback_handler(call):
     elif call.data=='Adj':
         markup = types.InlineKeyboardMarkup(row_width=4)
 
-        item1 = types.InlineKeyboardButton('ADJ|+C1', callback_data='ADJ|+C1')
-        item2 = types.InlineKeyboardButton('ADJ|+C2', callback_data='ADJ|+C2')
-        item3 = types.InlineKeyboardButton('ADJ|+C3', callback_data='ADJ|+C3')
-        item77 = types.InlineKeyboardButton('ADJ|+C4', callback_data='ADJ|+C4')
+        item1 = types.InlineKeyboardButton('1', callback_data='VOL1')
+        item2 = types.InlineKeyboardButton('2', callback_data='VOL2')
+        item3 = types.InlineKeyboardButton('3', callback_data='VOL3')
+        item77 = types.InlineKeyboardButton('4', callback_data='VOL4')
 
-        item4 = types.InlineKeyboardButton('ADJ|-C1', callback_data='ADJ|-C1')
-        item5 = types.InlineKeyboardButton('ADJ|-C2', callback_data='ADJ|-C2')
-        item6 = types.InlineKeyboardButton('ADJ|-C3', callback_data='ADJ|-C3')
-        item7 = types.InlineKeyboardButton('ADJ|-C4', callback_data='ADJ|-C4')
+        markup.add(item1, item2, item3,item77)
+        bot.send_message(call.message.chat.id, 'ADJ QTY Selection', reply_markup=markup)
+    elif call.data[:3]=='VOL':
+        markup = types.InlineKeyboardMarkup(row_width=4)
 
-        item8 = types.InlineKeyboardButton('ADJ|+P1', callback_data='ADJ|+P1')
-        item9 = types.InlineKeyboardButton('ADJ|+P2', callback_data='ADJ|+P2')
-        item11 = types.InlineKeyboardButton('ADJ|+P3', callback_data='ADJ|+P3')
-        item22 = types.InlineKeyboardButton('ADJ|+P4', callback_data='ADJ|+P4')
+        QTY=call.data  
+        bot.send_message(call.message.chat.id, call.data+' selected')
+        print(QTY) 
+        temp=['1','2','3','4']
+        for i in temp:
+            print(i)
+            if i==QTY[-1]:
+                item1 = types.InlineKeyboardButton('ADJ|+CALL1', callback_data='ADJ|+C1'+i)
+                item2 = types.InlineKeyboardButton('ADJ|+CALL2', callback_data='ADJ|+C2'+i)
+                item3 = types.InlineKeyboardButton('ADJ|+CALL3', callback_data='ADJ|+C3'+i)
+                item77 = types.InlineKeyboardButton('ADJ|+CALL4', callback_data='ADJ|+C4'+i)
 
-        item33 = types.InlineKeyboardButton('ADJ|-P1', callback_data='ADJ|-P1')
-        item44 = types.InlineKeyboardButton('ADJ|-P2', callback_data='ADJ|-P2')
-        item55 = types.InlineKeyboardButton('ADJ|-P3', callback_data='ADJ|-P3')
-        item66= types.InlineKeyboardButton('ADJ|-P4', callback_data='ADJ|-P4')
+                item4 = types.InlineKeyboardButton('ADJ|-CALL1', callback_data='ADJ|-C1'+i)
+                item5 = types.InlineKeyboardButton('ADJ|-CALL2', callback_data='ADJ|-C2'+i)
+                item6 = types.InlineKeyboardButton('ADJ|-CALL3', callback_data='ADJ|-C3'+i)
+                item7 = types.InlineKeyboardButton('ADJ|-CALL4', callback_data='ADJ|-C4'+i)
+
+                item8 = types.InlineKeyboardButton('ADJ|+PUT1', callback_data='ADJ|+P1'+i)
+                item9 = types.InlineKeyboardButton('ADJ|+PUT2', callback_data='ADJ|+P2'+i)
+                item11 = types.InlineKeyboardButton('ADJ|+PUT3', callback_data='ADJ|+P3'+i)
+                item22 = types.InlineKeyboardButton('ADJ|+PUT4', callback_data='ADJ|+P4'+i)
+
+                item33 = types.InlineKeyboardButton('ADJ|-PUT1', callback_data='ADJ|-P1'+i)
+                item44 = types.InlineKeyboardButton('ADJ|-PUT2', callback_data='ADJ|-P2'+i)
+                item55 = types.InlineKeyboardButton('ADJ|-PUT3', callback_data='ADJ|-P3'+i)
+                item66= types.InlineKeyboardButton('ADJ|-PUT4', callback_data='ADJ|-P4'+i)
 
         markup.add(item1, item2, item3,item77,item4, item5, item6,item7, item8, item9,item11, item22, item33,item44, item55, item66)
         
@@ -665,11 +687,11 @@ def callback_handler(call):
     elif call.data[:4]=='ADJ|':
          
          x=call.data
-         LEVEL=x[-1]
-         CALL_PUT=x[-2]
-         ACTION=x[-3]
-
-         result=adjustment(CALL_PUT,ACTION,LEVEL)
+         LEVEL=x[-2]
+         CALL_PUT=x[-3]
+         ACTION=x[-4]
+         QTY=x[-1]
+         result=adjustment(CALL_PUT,ACTION,LEVEL,QTY)
          bot.send_message(call.message.chat.id, result)   
 
 
