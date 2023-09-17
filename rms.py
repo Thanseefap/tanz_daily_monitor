@@ -13,7 +13,7 @@ scrip='ALL'
 sl=-0.5
 profit_b=1
 
-client_id='7'
+client_id='2'
 exit='NO'
 expiry='NO'
 PNL_TYPE='T_PNL'
@@ -47,7 +47,7 @@ from datetime import datetime
         
   
 
-bot = telebot.TeleBot(' 6277515369:AAET-z6EumKmJ2hgredC3akclYWrBdyG8n0')
+bot = telebot.TeleBot('6277515369:AAET-z6EumKmJ2hgredC3akclYWrBdyG8n0')
 
 
 
