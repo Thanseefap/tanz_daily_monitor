@@ -41,13 +41,13 @@ from login import shoonya
 from datetime import datetime
 
 
-## Small BOT 6277515369:AAET-z6EumKmJ2hgredC3akclYWrBdyG8n0
-### Main Bot 6280168009:AAG1iX2uiRV4zTH-03QC73PgXqsU85dEAEA
+## Main BOT 6277515369:AAET-z6EumKmJ2hgredC3akclYWrBdyG8n0
+### Small Bot 6280168009:AAG1iX2uiRV4zTH-03QC73PgXqsU85dEAEA
 
         
   
 
-bot = telebot.TeleBot('6280168009:AAG1iX2uiRV4zTH-03QC73PgXqsU85dEAEA')
+bot = telebot.TeleBot('6277515369:AAET-z6EumKmJ2hgredC3akclYWrBdyG8n0')
 
 
 
