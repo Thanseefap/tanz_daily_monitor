@@ -22,14 +22,14 @@ class shoonya(object):
     def __init__(self, twofa: str=None, client_id: str = None):
         if client_id=='1':
             self.uid = 'FA127352'
-            self.pwd = 'Messi@2024'
+            self.pwd = 'Haya@2020'
             self.factor2 = twofa
             self.imei = '60-45-CB-C5-A7-49'
             self.app_key = 'a2e650f7d642a160d3d428f6795c0b20'
             self.vc = 'FA127352_U'
         elif client_id=='2':
             self.uid = 'FA92112'
-            self.pwd = 'Haya@2020'
+            self.pwd = 'Azah@2020'
             self.factor2 = twofa
             self.imei = '60-45-CB-C5-A7-49'
             self.app_key = '3314839374e9c76e933188930cef5bdd'
