@@ -7,10 +7,10 @@ global profit_b
 global client_id
 global expiry
 global PNL_TYPE
-
+global lot
 
 scrip='ALL'
-sl=-0.5
+sl=-0.25
 profit_b=1
 
 client_id='2'
@@ -18,6 +18,7 @@ exit='NO'
 expiry='NO'
 PNL_TYPE='T_PNL'
 
+from math import floor
 import re
 from NorenRestApiPy.NorenApi import  NorenApi
 import logging
@@ -223,15 +224,33 @@ def Riskmanager(script,percent):
 
 
         except AttributeError:
-            show=['No']
+            show=['No-API Error']
             print('check 4')
             return show
         def exit_position(qty,sym,sell_buy):
-             api.place_order(buy_or_sell=sell_buy
-                                , product_type='M',
-                                    exchange='NFO', tradingsymbol=symp, 
-                                    quantity=abs(int(qty)), discloseqty=0,price_type='MKT', #price=0.1,# trigger_price=199.50,
-                                    retention='DAY', remarks='my_algo_order')
+             no_lot=abs(int(qty))/lot
+             lot_multipier=5
+             balance=no_lot%lot_multipier
+             rep=floor(no_lot/lot_multipier)
+
+             if rep>0:
+                for i in range(rep):
+                    
+                    api.place_order(buy_or_sell=sell_buy
+                                        , product_type='M',
+                                            exchange='NFO', tradingsymbol=symp, 
+                                            quantity=lot*lot_multipier, discloseqty=0,price_type='MKT', #price=0.1,# trigger_price=199.50,
+                                            retention='DAY', remarks='my_algo_order')
+                    sleep(2)
+                    
+             if balance>0:
+                  api.place_order(buy_or_sell=sell_buy
+                                        , product_type='M',
+                                            exchange='NFO', tradingsymbol=symp, 
+                                            quantity=lot*balance, discloseqty=0,price_type='MKT', #price=0.1,# trigger_price=199.50,
+                                            retention='DAY', remarks='my_algo_order')
+                  
+                     
              
         df=df1
         symbols=df[df['netqty']!=0][['tsym','netqty']]
@@ -245,7 +264,7 @@ def Riskmanager(script,percent):
                 else:
                     exit_position(symbols.iloc[i][1],symp,'S')
                 
-            show=['No']
+            show=['No-SL']
             
             return show
          
@@ -258,7 +277,7 @@ def Riskmanager(script,percent):
                 else:
                     exit_position(symbols.iloc[i][1],symp,'S')
                 
-             show=['No']
+             show=['No-Profit_booking']
             
              return show
         else:      
@@ -274,6 +293,8 @@ def update_strategy_performance(script, stop_loss):
     # code to update the performance of the trading strategy
     show = Riskmanager(script, stop_loss)
     print(show)
+    if len(show)==1:
+         return show
     Net_credit = show[4]
     Net_PL = show[0]
     CURRENT = show[1]
@@ -459,7 +480,7 @@ def perform_login(message):
     global api
     global exit
     global expiry
-
+    
 
     expiry='NO'
     exit='NO'
@@ -486,6 +507,8 @@ def callback_handler(call):
     global scrip
     global exit
     global PNL_TYPE
+    global lot
+
     print(call.data)
     if call.data == 'Login Details':
     # Echo the user's message
@@ -528,25 +551,25 @@ def callback_handler(call):
         for i in temp:
             print(i)
             if i==QTY[-1]:
-                item1 = types.InlineKeyboardButton('ADJ|+CALL1', callback_data='ADJ|+C1'+i)
-                item2 = types.InlineKeyboardButton('ADJ|+CALL2', callback_data='ADJ|+C2'+i)
-                item3 = types.InlineKeyboardButton('ADJ|+CALL3', callback_data='ADJ|+C3'+i)
-                item77 = types.InlineKeyboardButton('ADJ|+CALL4', callback_data='ADJ|+C4'+i)
+                item1 = types.InlineKeyboardButton('A|+C1', callback_data='ADJ|+C1'+i)
+                item2 = types.InlineKeyboardButton('A|+C2', callback_data='ADJ|+C2'+i)
+                item3 = types.InlineKeyboardButton('A|+C3', callback_data='ADJ|+C3'+i)
+                item77 = types.InlineKeyboardButton('A|+C4', callback_data='ADJ|+C4'+i)
 
-                item4 = types.InlineKeyboardButton('ADJ|-CALL1', callback_data='ADJ|-C1'+i)
-                item5 = types.InlineKeyboardButton('ADJ|-CALL2', callback_data='ADJ|-C2'+i)
-                item6 = types.InlineKeyboardButton('ADJ|-CALL3', callback_data='ADJ|-C3'+i)
-                item7 = types.InlineKeyboardButton('ADJ|-CALL4', callback_data='ADJ|-C4'+i)
+                item4 = types.InlineKeyboardButton('A|-C1', callback_data='ADJ|-C1'+i)
+                item5 = types.InlineKeyboardButton('A|-C2', callback_data='ADJ|-C2'+i)
+                item6 = types.InlineKeyboardButton('A|-C3', callback_data='ADJ|-C3'+i)
+                item7 = types.InlineKeyboardButton('A|-C4', callback_data='ADJ|-C4'+i)
 
-                item8 = types.InlineKeyboardButton('ADJ|+PUT1', callback_data='ADJ|+P1'+i)
-                item9 = types.InlineKeyboardButton('ADJ|+PUT2', callback_data='ADJ|+P2'+i)
-                item11 = types.InlineKeyboardButton('ADJ|+PUT3', callback_data='ADJ|+P3'+i)
-                item22 = types.InlineKeyboardButton('ADJ|+PUT4', callback_data='ADJ|+P4'+i)
+                item8 = types.InlineKeyboardButton('A|+P1', callback_data='ADJ|+P1'+i)
+                item9 = types.InlineKeyboardButton('A|+P2', callback_data='ADJ|+P2'+i)
+                item11 = types.InlineKeyboardButton('A|+P3', callback_data='ADJ|+P3'+i)
+                item22 = types.InlineKeyboardButton('A|+P4', callback_data='ADJ|+P4'+i)
 
-                item33 = types.InlineKeyboardButton('ADJ|-PUT1', callback_data='ADJ|-P1'+i)
-                item44 = types.InlineKeyboardButton('ADJ|-PUT2', callback_data='ADJ|-P2'+i)
-                item55 = types.InlineKeyboardButton('ADJ|-PUT3', callback_data='ADJ|-P3'+i)
-                item66= types.InlineKeyboardButton('ADJ|-PUT4', callback_data='ADJ|-P4'+i)
+                item33 = types.InlineKeyboardButton('A|-P1', callback_data='ADJ|-P1'+i)
+                item44 = types.InlineKeyboardButton('A|-P2', callback_data='ADJ|-P2'+i)
+                item55 = types.InlineKeyboardButton('A|-P3', callback_data='ADJ|-P3'+i)
+                item66= types.InlineKeyboardButton('A|-P4', callback_data='ADJ|-P4'+i)
 
         markup.add(item1, item2, item3,item77,item4, item5, item6,item7, item8, item9,item11, item22, item33,item44, item55, item66)
         
@@ -599,14 +622,17 @@ def callback_handler(call):
     elif call.data=='NIFTY':
         #global scrip
         scrip='NIFTY'
+        lot=50
         bot.send_message(call.message.chat.id, 'Index: NIFTY')
     elif call.data=='FIN':
         #global scrip
         scrip='FIN'
+        lot=40
         bot.send_message(call.message.chat.id, 'Index: FIN')
     elif call.data=='BANK':
         #global scrip
         scrip='BANKNIFTY'
+        lot=15
         bot.send_message(call.message.chat.id, 'Index: BANK NIFTY')
         
     elif call.data=='Profit Booking':
@@ -712,6 +738,8 @@ def callback_handler(call):
 # Script setting up for the code
         
         while True:
+            if call.data!='SHOW_KPI':
+                 break
             print(exit)
             if exit=='YES':
                           break
@@ -722,10 +750,10 @@ def callback_handler(call):
             #except requests.exceptions.ConnectionError as e:
             #except requests.exceptions.ConnectionError as e:
             show=update_strategy_performance(scrip, sl)
-            if show[0]=='No':
+            if len(show)==1:
                 
                 bot.send_message(call.message.chat.id, 'Position Started Exiting')
-                
+                bot.send_message(call.message.chat.id,show[0])
                 ret = api.get_order_book()
 
                 for i in ret['norenordno'][ret['status']=='OPEN']:
