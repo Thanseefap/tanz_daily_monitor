@@ -29,7 +29,7 @@ class shoonya(object):
             self.vc = 'FA127352_U'
         elif client_id=='2':
             self.uid = 'FA92112'
-            self.pwd = 'Messi@2020'
+            self.pwd = 'Wafa@2020'
             self.factor2 = twofa
             self.imei = '60-45-CB-C5-A7-49'
             self.app_key = '3314839374e9c76e933188930cef5bdd'
