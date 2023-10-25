@@ -7,8 +7,10 @@ global profit_b
 global client_id
 global expiry
 global PNL_TYPE
-global lot
+global no_lot
 
+
+no_lot=1
 scrip='ALL'
 sl=-0.25
 profit_b=1
@@ -29,7 +31,7 @@ from time import sleep
 #import matplotlib.pyplot as plt
 from io import BytesIO
 import logging
-from telegram import InputMediaPhoto
+#from telegram import InputMediaPhoto
 from telegram.ext import Updater, CommandHandler
 from datetime import datetime
 import telebot
@@ -57,6 +59,142 @@ bot = telebot.TeleBot('6277515369:AAET-z6EumKmJ2hgredC3akclYWrBdyG8n0')
 ## Thanseef
 
 
+## Entry helper for re entry and initial enrty for exipry day
+
+## strangle entry with hedge,
+
+
+
+
+def nearest_strikes():
+    
+    
+    strikes=[]     
+    if scrip=='BANKNIFTY':
+        qRes = api.get_quotes('NSE', 'Nifty Bank')
+        spread=100
+        lot=15
+        index='BANKNIFTY'
+    elif scrip=='FIN':
+            qRes = api.get_quotes('NSE', 'Nifty Fin Service')
+            lot=40
+            spread=50
+            index='FINNIFTY'
+    elif scrip=='NIFTY': 
+            qRes = api.get_quotes('NSE', 'Nifty 50')
+            lot=50
+            spread=50
+            index='NIFTY'
+    else:
+        print('select index')
+        return 'Not Possible : SCRIP NOT SELECTED'
+
+    print(qRes)
+    index_ltp=float(qRes['lp'])
+
+    # Finding ATM Strike
+    import math
+    mod = float(index_ltp)%spread
+    if mod < spread/2:
+        atm_strike=int((index_ltp-mod))
+    else:
+        atm_strike=int(index_ltp-mod+spread)
+
+    PUT_STRIKES=[]
+    CALL_STRIKES=[]
+    LEVELS=[]
+    for i in range(15):
+             PUT_STRIKES.append(atm_strike-spread*i)
+             CALL_STRIKES.append(atm_strike+spread*i)
+             LEVELS.append(int(i))
+    data = {
+    'LEVEL':LEVELS,
+    'PUT': PUT_STRIKES,
+    'CALL': CALL_STRIKES
+     }
+
+    # Create DataFrame from dictionary
+    df = pd.DataFrame(data)
+    df['PUT_NAME'] = df.apply(lambda row: f"{index}{expiry}P{row['PUT']}", axis=1)
+    df['CALL_NAME'] = df.apply(lambda row: f"{index}{expiry}C{row['CALL']}", axis=1)
+    
+    return df
+
+
+
+def place_order(BUY_SELL,sym,qty):
+    if scrip=='BANKNIFTY':
+        qRes = api.get_quotes('NSE', 'Nifty Bank')
+        spread=100
+        lot=15
+        index='BANKNIFTY'
+    elif scrip=='FIN':
+            qRes = api.get_quotes('NSE', 'Nifty Fin Service')
+            lot=40
+            spread=50
+            index='FINNIFTY'
+    elif scrip=='NIFTY': 
+            qRes = api.get_quotes('NSE', 'Nifty 50')
+            lot=50
+            spread=50
+            index='NIFTY'
+    else:
+        print('select index')
+        return 'Not Possible : SCRIP NOT SELECTED'
+    test1=qty*lot
+    print(test1)
+    print(BUY_SELL,test1,sym)
+    x=api.place_order(buy_or_sell=BUY_SELL
+                                        , product_type='M',
+                                            exchange='NFO', tradingsymbol=sym, 
+                                            quantity=qty*lot, discloseqty=0,price_type='MKT', #price=0.1,# trigger_price=199.50,
+                                            retention='DAY', remarks='my_algo_order')   
+    #This will return 'Ok' if order is processed to the system
+
+    return x['stat']
+
+
+def entry_expiry(level_otm,hedge_diff,entry_type,lot):
+     #
+     # finnding the level for the selected index
+     df=nearest_strikes()
+     #df[df['LEVEL']==1]
+     
+     level_otm=int(level_otm)
+     print(df)
+     print(type(level_otm))
+    # print(df[[df['LEVEL']==level_otm]])
+     sell_sym_c=df['CALL_NAME'][df['LEVEL']==level_otm].iloc[0]
+     sell_sym_p=df['PUT_NAME'][df['LEVEL']==level_otm].iloc[0]
+     buy_sym_c=df['CALL_NAME'][df['LEVEL']==(level_otm+hedge_diff)].iloc[0]
+     buy_sym_p=df['PUT_NAME'][df['LEVEL']==(level_otm+hedge_diff)].iloc[0]
+     
+    
+     if entry_type=='BOTH':
+          
+        place_order('B',buy_sym_c,lot)
+        place_order('S',sell_sym_c,lot)
+
+        place_order('B',buy_sym_p,lot)
+        check=place_order('S',sell_sym_p,lot)
+
+        if check=='Ok':
+             return f"Entry Successfull PUT And CALL with  lot : {lot}, CALL :{sell_sym_c} & PUT : {sell_sym_p} and Hedge -- Call : {buy_sym_c} & Sell  : {buy_sym_p}"
+     elif entry_type=='CALL':
+        place_order('B',buy_sym_c,lot)
+        check=place_order('S',sell_sym_c,lot)
+        if check=='Ok':
+             return f"Entry Successfull CALL with {lot}, CALL :{sell_sym_c} and Hedge -- Call : {buy_sym_c} "
+
+     elif entry_type=='PUT':
+        place_order('B',buy_sym_p,lot)
+        check=place_order('S',sell_sym_p,lot)
+        if check=='Ok':
+             return f"Entry Successfull PUT with {lot}, PUT : {sell_sym_p} and Hedge -- Put : {buy_sym_p}"
+
+     return 'Entry not succesful'
+
+
 
 #function for exiting all position
 ## Function which will return the percentage profit and exit if it's greater than stop loss
@@ -76,7 +214,7 @@ def adjustment(CALL_PUT,ACTION,LEVEL,QTY):
              spread=100
              lot=15
         elif scrip=='FIN':
-             qRes = api.get_quotes('NSE', 'Nifty Fin Services')
+             qRes = api.get_quotes('NSE', 'Nifty Fin Service')
              lot=40
              spread=50
         elif scrip=='NIFTY': 
@@ -352,14 +490,18 @@ def end(message):
     markup.add(item1, item2)
     
     bot.send_message(message.chat.id, 'RMS Stop', reply_markup=markup)
-               
+
+
+ 
+
+
 @bot.message_handler(commands=['start'])
 def start(message):
     # Create the main menu with nested commands
     markup = types.InlineKeyboardMarkup(row_width=3)
     item1 = types.InlineKeyboardButton('Login Details', callback_data='Login Details')
     item2 = types.InlineKeyboardButton('Adjustment', callback_data='Adj')
-    item4 = types.InlineKeyboardButton('Current Position', callback_data='POS')
+    item4 = types.InlineKeyboardButton('Entry', callback_data='Entry')
     item3 = types.InlineKeyboardButton('RMS', callback_data='RMS')
     markup.add(item1, item2, item3, item4)
     try :
@@ -410,6 +552,23 @@ def client_select(message):
     bot.send_message(message.chat.id, 'Client Selection', reply_markup=markup)
      
 
+
+@bot.message_handler(commands=['lot'])
+def lot_select(message):
+    bot.send_message(message.chat.id, 'Enter lot:')
+    bot.register_next_step_handler(message, perform_lot)
+
+def perform_lot(message):
+    global no_lot
+    
+
+    
+    chat_id = message.chat.id
+    no_lot = int(message.text)
+    
+    bot.send_message(message.chat.id, f"Lot : {no_lot}")
+    
+    
 
 # --------------expiry addition -------------#
 
@@ -531,6 +690,77 @@ def callback_handler(call):
           #    print(sl)
           #    bot.send_message(call.message.chat.id, 'Set SL')
    #
+
+    elif call.data=='Entry':
+        
+        markup = types.InlineKeyboardMarkup(row_width=4)
+
+        item1 = types.InlineKeyboardButton('1', callback_data='LEV1')
+        item2 = types.InlineKeyboardButton('2', callback_data='LEV2')
+        item3 = types.InlineKeyboardButton('3', callback_data='LEV3')
+        item4 = types.InlineKeyboardButton('4', callback_data='LEV4')
+        item5 = types.InlineKeyboardButton('5', callback_data='LEV5')
+        item6 = types.InlineKeyboardButton('6', callback_data='LEV6')
+        item7 = types.InlineKeyboardButton('7', callback_data='LEV7')
+        item8 = types.InlineKeyboardButton('8', callback_data='LEV8')
+        markup.add(item1, item2, item3,item4,item5, item6, item7,item8)
+        bot.send_message(call.message.chat.id, 'OTM LEVEL Selection', reply_markup=markup)
+    elif call.data[:3]=='LEV': 
+
+        markup = types.InlineKeyboardMarkup(row_width=4)
+
+        QTY=call.data  
+        bot.send_message(call.message.chat.id, call.data+' selected')
+        print(QTY) 
+        temp=['1','2','3','4','5','6','7','8']
+
+        for i in temp:
+            print(i)
+            if i==QTY[-1]:
+                item1 = types.InlineKeyboardButton('HED1', callback_data=i+'HED1')
+                item2 = types.InlineKeyboardButton('HED2', callback_data=i+'HED2')
+                item3 = types.InlineKeyboardButton('HED3', callback_data=i+'HED3')
+                item4 = types.InlineKeyboardButton('HED4', callback_data=i+'HED4')
+                item6 = types.InlineKeyboardButton('HED6', callback_data=i+'HED6')
+                item10 = types.InlineKeyboardButton('HED10', callback_data=i+'HED10')
+                item15 = types.InlineKeyboardButton('HED15', callback_data=i+'HED15')
+                item20 = types.InlineKeyboardButton('HED20', callback_data=i+'HED20')
+        
+        markup.add(item1, item2, item3,item4, item6, item10,item15, item20)
+        
+        bot.send_message(call.message.chat.id, 'HEDGE Selection', reply_markup=markup)
+  
+    elif call.data[1:4]=='HED':
+        markup = types.InlineKeyboardMarkup(row_width=2)
+        qty=call.data[0]
+        hedge=call.data[4:]
+         
+        item1 = types.InlineKeyboardButton('BOTH', callback_data='KITHNA'+qty+'B'+hedge)
+        item2 = types.InlineKeyboardButton('CALL', callback_data='KITHNA'+qty+'C'+hedge)
+        item3 = types.InlineKeyboardButton('PUT', callback_data='KITHNA'+qty+'P'+hedge)
+
+        markup.add(item1, item2, item3)
+        
+        bot.send_message(call.message.chat.id, 'Entry Selection', reply_markup=markup)
+
+    elif call.data[0:6]=='KITHNA':
+        
+        lev=int(call.data[6])
+        
+        if call.data[7]=='B':
+             entry_type='BOTH'
+        elif call.data[7]=='C':
+             entry_type='CALL'
+        else:
+             entry_type='PUT'
+        hedge=int(call.data[8:])
+        
+        print(lev,hedge)
+        print(type(lev))
+        print(type(hedge))
+        status=entry_expiry(int(lev),int(hedge),entry_type,no_lot)
+      #  bot.send_message(call.message.chat.id, status, reply_markup=markup)
+        bot.send_message(call.message.chat.id, status)
     elif call.data=='Adj':
         markup = types.InlineKeyboardMarkup(row_width=4)
 
@@ -540,7 +770,7 @@ def callback_handler(call):
         item77 = types.InlineKeyboardButton('4', callback_data='VOL4')
 
         markup.add(item1, item2, item3,item77)
-        bot.send_message(call.message.chat.id, 'ADJ QTY Selection', reply_markup=markup)
+     #   bot.send_message(call.message.chat.id, 'ADJ QTY Selection', reply_markup=markup)
     elif call.data[:3]=='VOL':
         markup = types.InlineKeyboardMarkup(row_width=4)
 
@@ -574,7 +804,7 @@ def callback_handler(call):
         markup.add(item1, item2, item3,item77,item4, item5, item6,item7, item8, item9,item11, item22, item33,item44, item55, item66)
         
         bot.send_message(call.message.chat.id, 'Adj Selection', reply_markup=markup)
-  
+        
 
     
          
@@ -799,4 +1029,4 @@ def callback_handler(call):
         
                               
     
-bot.infinity_polling(timeout=10, long_polling_timeout = 5)
+bot.infinity_polling(timeout=15, long_polling_timeout = 15)
