@@ -7,17 +7,21 @@ global profit_b
 global client_id
 global expiry
 global PNL_TYPE
+global no_lot
+global sl_type
 
-
+no_lot=1
 scrip='ALL'
-sl=-0.5
+sl=-0.15
 profit_b=1
 
-client_id='7'
+client_id='2'
 exit='NO'
 expiry='NO'
 PNL_TYPE='T_PNL'
+sl_type='P'
 
+from math import floor
 import re
 from NorenRestApiPy.NorenApi import  NorenApi
 import logging
@@ -28,7 +32,7 @@ from time import sleep
 #import matplotlib.pyplot as plt
 from io import BytesIO
 import logging
-from telegram import InputMediaPhoto
+#from telegram import InputMediaPhoto
 from telegram.ext import Updater, CommandHandler
 from datetime import datetime
 import telebot
@@ -47,13 +51,149 @@ from datetime import datetime
         
   
 
-bot = telebot.TeleBot('6280168009:AAG1iX2uiRV4zTH-03QC73PgXqsU85dEAEA')
+bot = telebot.TeleBot('6277515369:AAET-z6EumKmJ2hgredC3akclYWrBdyG8n0')
 
 
 
 
 
 ## Thanseef
+
+
+## Entry helper for re entry and initial enrty for exipry day
+
+## strangle entry with hedge,
+
+
+
+
+def nearest_strikes():
+    
+    
+    strikes=[]     
+    if scrip=='BANKNIFTY':
+        qRes = api.get_quotes('NSE', 'Nifty Bank')
+        spread=100
+        lot=15
+        index='BANKNIFTY'
+    elif scrip=='FIN':
+            qRes = api.get_quotes('NSE', 'Nifty Fin Service')
+            lot=40
+            spread=50
+            index='FINNIFTY'
+    elif scrip=='NIFTY': 
+            qRes = api.get_quotes('NSE', 'Nifty 50')
+            lot=50
+            spread=50
+            index='NIFTY'
+    else:
+        print('select index')
+        return 'Not Possible : SCRIP NOT SELECTED'
+
+    print(qRes)
+    index_ltp=float(qRes['lp'])
+
+    # Finding ATM Strike
+    import math
+    mod = float(index_ltp)%spread
+    if mod < spread/2:
+        atm_strike=int((index_ltp-mod))
+    else:
+        atm_strike=int(index_ltp-mod+spread)
+
+    PUT_STRIKES=[]
+    CALL_STRIKES=[]
+    LEVELS=[]
+    for i in range(15):
+             PUT_STRIKES.append(atm_strike-spread*i)
+             CALL_STRIKES.append(atm_strike+spread*i)
+             LEVELS.append(int(i))
+    data = {
+    'LEVEL':LEVELS,
+    'PUT': PUT_STRIKES,
+    'CALL': CALL_STRIKES
+     }
+
+    # Create DataFrame from dictionary
+    df = pd.DataFrame(data)
+    df['PUT_NAME'] = df.apply(lambda row: f"{index}{expiry}P{row['PUT']}", axis=1)
+    df['CALL_NAME'] = df.apply(lambda row: f"{index}{expiry}C{row['CALL']}", axis=1)
+    
+    return df
+
+
+
+def place_order(BUY_SELL,sym,qty):
+    if scrip=='BANKNIFTY':
+        qRes = api.get_quotes('NSE', 'Nifty Bank')
+        spread=100
+        lot=15
+        index='BANKNIFTY'
+    elif scrip=='FIN':
+            qRes = api.get_quotes('NSE', 'Nifty Fin Service')
+            lot=40
+            spread=50
+            index='FINNIFTY'
+    elif scrip=='NIFTY': 
+            qRes = api.get_quotes('NSE', 'Nifty 50')
+            lot=50
+            spread=50
+            index='NIFTY'
+    else:
+        print('select index')
+        return 'Not Possible : SCRIP NOT SELECTED'
+    test1=qty*lot
+    print(test1)
+    print(BUY_SELL,test1,sym)
+    x=api.place_order(buy_or_sell=BUY_SELL
+                                        , product_type='M',
+                                            exchange='NFO', tradingsymbol=sym, 
+                                            quantity=qty*lot, discloseqty=0,price_type='MKT', #price=0.1,# trigger_price=199.50,
+                                            retention='DAY', remarks='my_algo_order')   
+    #This will return 'Ok' if order is processed to the system
+
+    return x['stat']
+
+
+def entry_expiry(level_otm,hedge_diff,entry_type,lot):
+     #
+     # finnding the level for the selected index
+     df=nearest_strikes()
+     #df[df['LEVEL']==1]
+     
+     level_otm=int(level_otm)
+     print(df)
+     print(type(level_otm))
+    # print(df[[df['LEVEL']==level_otm]])
+     sell_sym_c=df['CALL_NAME'][df['LEVEL']==level_otm].iloc[0]
+     sell_sym_p=df['PUT_NAME'][df['LEVEL']==level_otm].iloc[0]
+     buy_sym_c=df['CALL_NAME'][df['LEVEL']==(level_otm+hedge_diff)].iloc[0]
+     buy_sym_p=df['PUT_NAME'][df['LEVEL']==(level_otm+hedge_diff)].iloc[0]
+     
+    
+     if entry_type=='BOTH':
+          
+        place_order('B',buy_sym_c,lot)
+        place_order('S',sell_sym_c,lot)
+
+        place_order('B',buy_sym_p,lot)
+        check=place_order('S',sell_sym_p,lot)
+
+        if check=='Ok':
+             return f"Entry Successfull PUT And CALL with  lot : {lot}, CALL :{sell_sym_c} & PUT : {sell_sym_p} and Hedge -- Call : {buy_sym_c} & Sell  : {buy_sym_p}"
+     elif entry_type=='CALL':
+        place_order('B',buy_sym_c,lot)
+        check=place_order('S',sell_sym_c,lot)
+        if check=='Ok':
+             return f"Entry Successfull CALL with {lot}, CALL :{sell_sym_c} and Hedge -- Call : {buy_sym_c} "
+
+     elif entry_type=='PUT':
+        place_order('B',buy_sym_p,lot)
+        check=place_order('S',sell_sym_p,lot)
+        if check=='Ok':
+             return f"Entry Successfull PUT with {lot}, PUT : {sell_sym_p} and Hedge -- Put : {buy_sym_p}"
+
+     return 'Entry not succesful'
 
 
 
@@ -75,7 +215,7 @@ def adjustment(CALL_PUT,ACTION,LEVEL,QTY):
              spread=100
              lot=15
         elif scrip=='FIN':
-             qRes = api.get_quotes('NSE', 'Nifty Fin Services')
+             qRes = api.get_quotes('NSE', 'Nifty Fin Service')
              lot=40
              spread=50
         elif scrip=='NIFTY': 
@@ -223,19 +363,43 @@ def Riskmanager(script,percent):
 
 
         except AttributeError:
-            show=['No']
+            show=['No-API Error']
             print('check 4')
             return show
         def exit_position(qty,sym,sell_buy):
-             api.place_order(buy_or_sell=sell_buy
-                                , product_type='M',
-                                    exchange='NFO', tradingsymbol=symp, 
-                                    quantity=abs(int(qty)), discloseqty=0,price_type='MKT', #price=0.1,# trigger_price=199.50,
-                                    retention='DAY', remarks='my_algo_order')
+             no_lot=abs(int(qty))/lot
+             lot_multipier=5
+             balance=no_lot%lot_multipier
+             rep=floor(no_lot/lot_multipier)
+
+             if rep>0:
+                for i in range(rep):
+                    
+                    api.place_order(buy_or_sell=sell_buy
+                                        , product_type='M',
+                                            exchange='NFO', tradingsymbol=symp, 
+                                            quantity=lot*lot_multipier, discloseqty=0,price_type='MKT', #price=0.1,# trigger_price=199.50,
+                                            retention='DAY', remarks='my_algo_order')
+                    sleep(2)
+                    
+             if balance>0:
+                  api.place_order(buy_or_sell=sell_buy
+                                        , product_type='M',
+                                            exchange='NFO', tradingsymbol=symp, 
+                                            quantity=lot*balance, discloseqty=0,price_type='MKT', #price=0.1,# trigger_price=199.50,
+                                            retention='DAY', remarks='my_algo_order')
+                  
+                     
              
         df=df1
         symbols=df[df['netqty']!=0][['tsym','netqty']]
         symbols=symbols.sort_values( by='netqty')    # ascending=False
+
+
+        if sl_type=='C':
+             p=mtm
+             print(p)
+             
         if p<percent:
             print('check 3')
             for i in range(len(symbols)):
@@ -245,7 +409,7 @@ def Riskmanager(script,percent):
                 else:
                     exit_position(symbols.iloc[i][1],symp,'S')
                 
-            show=['No']
+            show=['No-SL']
             
             return show
          
@@ -258,7 +422,7 @@ def Riskmanager(script,percent):
                 else:
                     exit_position(symbols.iloc[i][1],symp,'S')
                 
-             show=['No']
+             show=['No-Profit_booking']
             
              return show
         else:      
@@ -274,6 +438,8 @@ def update_strategy_performance(script, stop_loss):
     # code to update the performance of the trading strategy
     show = Riskmanager(script, stop_loss)
     print(show)
+    if len(show)==1:
+         return show
     Net_credit = show[4]
     Net_PL = show[0]
     CURRENT = show[1]
@@ -290,6 +456,7 @@ def update_strategy_performance(script, stop_loss):
  
 ## Main BOT 6277515369:AAET-z6EumKmJ2hgredC3akclYWrBdyG8n0
 ### Small Bot 6280168009:AAG1iX2uiRV4zTH-03QC73PgXqsU85dEAEA
+
 
 
 
@@ -330,14 +497,18 @@ def end(message):
     markup.add(item1, item2)
     
     bot.send_message(message.chat.id, 'RMS Stop', reply_markup=markup)
-               
+
+
+ 
+
+
 @bot.message_handler(commands=['start'])
 def start(message):
     # Create the main menu with nested commands
     markup = types.InlineKeyboardMarkup(row_width=3)
     item1 = types.InlineKeyboardButton('Login Details', callback_data='Login Details')
     item2 = types.InlineKeyboardButton('Adjustment', callback_data='Adj')
-    item4 = types.InlineKeyboardButton('Current Position', callback_data='POS')
+    item4 = types.InlineKeyboardButton('Entry', callback_data='Entry')
     item3 = types.InlineKeyboardButton('RMS', callback_data='RMS')
     markup.add(item1, item2, item3, item4)
     try :
@@ -358,7 +529,8 @@ def index_select(message):
     item2 = types.InlineKeyboardButton('BANK', callback_data='BANK')
     item3 = types.InlineKeyboardButton('NIFTY', callback_data='NIFTY')
     item4 = types.InlineKeyboardButton('FIN', callback_data='FIN')
-    markup.add(item1, item2, item3,item4)
+    item5 = types.InlineKeyboardButton('SENSEX', callback_data='SEN')
+    markup.add(item1, item2, item3,item4,item5)
     
     bot.send_message(message.chat.id, 'Index Selection', reply_markup=markup)
      
@@ -388,6 +560,23 @@ def client_select(message):
     bot.send_message(message.chat.id, 'Client Selection', reply_markup=markup)
      
 
+
+@bot.message_handler(commands=['lot'])
+def lot_select(message):
+    bot.send_message(message.chat.id, 'Enter lot:')
+    bot.register_next_step_handler(message, perform_lot)
+
+def perform_lot(message):
+    global no_lot
+    
+
+    
+    chat_id = message.chat.id
+    no_lot = int(message.text)
+    
+    bot.send_message(message.chat.id, f"Lot : {no_lot}")
+    
+    
 
 # --------------expiry addition -------------#
 
@@ -424,6 +613,21 @@ def perform_expiry(message):
     bot.send_message(message.chat.id, f"Set Exipry is {expiry}")
 
 
+## Modfied SL 
+
+@bot.message_handler(commands=['sl_type'])
+def index_select(message):
+    # Create the main menu with nested commands
+    markup = types.InlineKeyboardMarkup(row_width=3)
+    item1 = types.InlineKeyboardButton('% SL', callback_data='SL-P')
+    item2 = types.InlineKeyboardButton('CASH SL', callback_data='SL-C')
+    
+    markup.add(item1, item2)
+    
+    bot.send_message(message.chat.id, 'SL Selection', reply_markup=markup)
+     
+
+
 @bot.message_handler(commands=['sl'])       
 def sl_update(message):
     bot.send_message(message.chat.id, 'Enter SL:')
@@ -458,7 +662,7 @@ def perform_login(message):
     global api
     global exit
     global expiry
-
+    
 
     expiry='NO'
     exit='NO'
@@ -485,6 +689,8 @@ def callback_handler(call):
     global scrip
     global exit
     global PNL_TYPE
+    global lot
+    global sl_type
     print(call.data)
     if call.data == 'Login Details':
     # Echo the user's message
@@ -507,6 +713,85 @@ def callback_handler(call):
           #    print(sl)
           #    bot.send_message(call.message.chat.id, 'Set SL')
    #
+
+    elif call.data=='Entry':
+        
+        markup = types.InlineKeyboardMarkup(row_width=4)
+
+        item1 = types.InlineKeyboardButton('1', callback_data='LEV1')
+        item2 = types.InlineKeyboardButton('2', callback_data='LEV2')
+        item3 = types.InlineKeyboardButton('3', callback_data='LEV3')
+        item4 = types.InlineKeyboardButton('4', callback_data='LEV4')
+        item5 = types.InlineKeyboardButton('5', callback_data='LEV5')
+        item6 = types.InlineKeyboardButton('6', callback_data='LEV6')
+        item7 = types.InlineKeyboardButton('7', callback_data='LEV7')
+        item8 = types.InlineKeyboardButton('8', callback_data='LEV8')
+        markup.add(item1, item2, item3,item4,item5, item6, item7,item8)
+        bot.send_message(call.message.chat.id, 'OTM LEVEL Selection', reply_markup=markup)
+    elif call.data[:3]=='LEV': 
+
+        markup = types.InlineKeyboardMarkup(row_width=4)
+
+        QTY=call.data  
+        bot.send_message(call.message.chat.id, call.data+' selected')
+        print(QTY) 
+        temp=['1','2','3','4','5','6','7','8']
+
+        for i in temp:
+            print(i)
+            if i==QTY[-1]:
+                item1 = types.InlineKeyboardButton('HED1', callback_data=i+'HED1')
+                item2 = types.InlineKeyboardButton('HED2', callback_data=i+'HED2')
+                item3 = types.InlineKeyboardButton('HED3', callback_data=i+'HED3')
+                item4 = types.InlineKeyboardButton('HED4', callback_data=i+'HED4')
+                item6 = types.InlineKeyboardButton('HED6', callback_data=i+'HED6')
+                item10 = types.InlineKeyboardButton('HED10', callback_data=i+'HED10')
+                item15 = types.InlineKeyboardButton('HED15', callback_data=i+'HED15')
+                item20 = types.InlineKeyboardButton('HED20', callback_data=i+'HED20')
+        
+        markup.add(item1, item2, item3,item4, item6, item10,item15, item20)
+        
+        bot.send_message(call.message.chat.id, 'HEDGE Selection', reply_markup=markup)
+
+    elif call.data[0:3]=='SL-':
+        if call.data[3:]=='P':
+            sl_type='P'
+
+        else:
+            sl_type='C'
+
+  
+    elif call.data[1:4]=='HED':
+        markup = types.InlineKeyboardMarkup(row_width=2)
+        qty=call.data[0]
+        hedge=call.data[4:]
+         
+        item1 = types.InlineKeyboardButton('BOTH', callback_data='KITHNA'+qty+'B'+hedge)
+        item2 = types.InlineKeyboardButton('CALL', callback_data='KITHNA'+qty+'C'+hedge)
+        item3 = types.InlineKeyboardButton('PUT', callback_data='KITHNA'+qty+'P'+hedge)
+
+        markup.add(item1, item2, item3)
+        
+        bot.send_message(call.message.chat.id, 'Entry Selection', reply_markup=markup)
+
+    elif call.data[0:6]=='KITHNA':
+        
+        lev=int(call.data[6])
+        
+        if call.data[7]=='B':
+             entry_type='BOTH'
+        elif call.data[7]=='C':
+             entry_type='CALL'
+        else:
+             entry_type='PUT'
+        hedge=int(call.data[8:])
+        
+        print(lev,hedge)
+        print(type(lev))
+        print(type(hedge))
+        status=entry_expiry(int(lev),int(hedge),entry_type,no_lot)
+      #  bot.send_message(call.message.chat.id, status, reply_markup=markup)
+        bot.send_message(call.message.chat.id, status)
     elif call.data=='Adj':
         markup = types.InlineKeyboardMarkup(row_width=4)
 
@@ -516,7 +801,7 @@ def callback_handler(call):
         item77 = types.InlineKeyboardButton('4', callback_data='VOL4')
 
         markup.add(item1, item2, item3,item77)
-        bot.send_message(call.message.chat.id, 'ADJ QTY Selection', reply_markup=markup)
+     #   bot.send_message(call.message.chat.id, 'ADJ QTY Selection', reply_markup=markup)
     elif call.data[:3]=='VOL':
         markup = types.InlineKeyboardMarkup(row_width=4)
 
@@ -527,30 +812,30 @@ def callback_handler(call):
         for i in temp:
             print(i)
             if i==QTY[-1]:
-                item1 = types.InlineKeyboardButton('ADJ|+CALL1', callback_data='ADJ|+C1'+i)
-                item2 = types.InlineKeyboardButton('ADJ|+CALL2', callback_data='ADJ|+C2'+i)
-                item3 = types.InlineKeyboardButton('ADJ|+CALL3', callback_data='ADJ|+C3'+i)
-                item77 = types.InlineKeyboardButton('ADJ|+CALL4', callback_data='ADJ|+C4'+i)
+                item1 = types.InlineKeyboardButton('A|+C1', callback_data='ADJ|+C1'+i)
+                item2 = types.InlineKeyboardButton('A|+C2', callback_data='ADJ|+C2'+i)
+                item3 = types.InlineKeyboardButton('A|+C3', callback_data='ADJ|+C3'+i)
+                item77 = types.InlineKeyboardButton('A|+C4', callback_data='ADJ|+C4'+i)
 
-                item4 = types.InlineKeyboardButton('ADJ|-CALL1', callback_data='ADJ|-C1'+i)
-                item5 = types.InlineKeyboardButton('ADJ|-CALL2', callback_data='ADJ|-C2'+i)
-                item6 = types.InlineKeyboardButton('ADJ|-CALL3', callback_data='ADJ|-C3'+i)
-                item7 = types.InlineKeyboardButton('ADJ|-CALL4', callback_data='ADJ|-C4'+i)
+                item4 = types.InlineKeyboardButton('A|-C1', callback_data='ADJ|-C1'+i)
+                item5 = types.InlineKeyboardButton('A|-C2', callback_data='ADJ|-C2'+i)
+                item6 = types.InlineKeyboardButton('A|-C3', callback_data='ADJ|-C3'+i)
+                item7 = types.InlineKeyboardButton('A|-C4', callback_data='ADJ|-C4'+i)
 
-                item8 = types.InlineKeyboardButton('ADJ|+PUT1', callback_data='ADJ|+P1'+i)
-                item9 = types.InlineKeyboardButton('ADJ|+PUT2', callback_data='ADJ|+P2'+i)
-                item11 = types.InlineKeyboardButton('ADJ|+PUT3', callback_data='ADJ|+P3'+i)
-                item22 = types.InlineKeyboardButton('ADJ|+PUT4', callback_data='ADJ|+P4'+i)
+                item8 = types.InlineKeyboardButton('A|+P1', callback_data='ADJ|+P1'+i)
+                item9 = types.InlineKeyboardButton('A|+P2', callback_data='ADJ|+P2'+i)
+                item11 = types.InlineKeyboardButton('A|+P3', callback_data='ADJ|+P3'+i)
+                item22 = types.InlineKeyboardButton('A|+P4', callback_data='ADJ|+P4'+i)
 
-                item33 = types.InlineKeyboardButton('ADJ|-PUT1', callback_data='ADJ|-P1'+i)
-                item44 = types.InlineKeyboardButton('ADJ|-PUT2', callback_data='ADJ|-P2'+i)
-                item55 = types.InlineKeyboardButton('ADJ|-PUT3', callback_data='ADJ|-P3'+i)
-                item66= types.InlineKeyboardButton('ADJ|-PUT4', callback_data='ADJ|-P4'+i)
+                item33 = types.InlineKeyboardButton('A|-P1', callback_data='ADJ|-P1'+i)
+                item44 = types.InlineKeyboardButton('A|-P2', callback_data='ADJ|-P2'+i)
+                item55 = types.InlineKeyboardButton('A|-P3', callback_data='ADJ|-P3'+i)
+                item66= types.InlineKeyboardButton('A|-P4', callback_data='ADJ|-P4'+i)
 
         markup.add(item1, item2, item3,item77,item4, item5, item6,item7, item8, item9,item11, item22, item33,item44, item55, item66)
         
         bot.send_message(call.message.chat.id, 'Adj Selection', reply_markup=markup)
-  
+        
 
     
          
@@ -598,15 +883,24 @@ def callback_handler(call):
     elif call.data=='NIFTY':
         #global scrip
         scrip='NIFTY'
+        lot=50
         bot.send_message(call.message.chat.id, 'Index: NIFTY')
     elif call.data=='FIN':
         #global scrip
         scrip='FIN'
+        lot=40
         bot.send_message(call.message.chat.id, 'Index: FIN')
     elif call.data=='BANK':
         #global scrip
         scrip='BANKNIFTY'
+        lot=15
         bot.send_message(call.message.chat.id, 'Index: BANK NIFTY')
+
+    elif call.data=='SEN':
+        #global scrip
+        scrip='SENSEX'
+        lot=10
+        bot.send_message(call.message.chat.id, 'Index: SENSEX')
         
     elif call.data=='Profit Booking':
         df1=pd.DataFrame(api.get_positions())
@@ -697,8 +991,8 @@ def callback_handler(call):
     elif call.data == 'RMS':
         # Create the submenu with nested commands
         submenu_markup = types.InlineKeyboardMarkup(row_width=2)
-        submenu_item1 = types.InlineKeyboardButton('SHOW_KPI', callback_data='SHOW_KPI')
-        submenu_item2 = types.InlineKeyboardButton('Position', callback_data='Position')
+        submenu_item1 = types.InlineKeyboardButton('START_RMS', callback_data='SHOW_KPI')
+        submenu_item2 = types.InlineKeyboardButton('KPI', callback_data='KPI')
         submenu_item3 = types.InlineKeyboardButton('Update_SL', callback_data='Update_SL')
       #  submenu_item4 = types.InlineKeyboardButton('index', callback_data='RMS')
         submenu_markup.add( submenu_item1,  submenu_item2,  submenu_item3)
@@ -711,11 +1005,9 @@ def callback_handler(call):
 # Script setting up for the code
         
         while True:
-            print(exit)
             if call.data!='SHOW_KPI':
                  break
             print(exit)
-
             if exit=='YES':
                           break
             #if call.data=='Pause RMS':
@@ -725,10 +1017,10 @@ def callback_handler(call):
             #except requests.exceptions.ConnectionError as e:
             #except requests.exceptions.ConnectionError as e:
             show=update_strategy_performance(scrip, sl)
-            if show[0]=='No':
+            if len(show)==1:
                 
                 bot.send_message(call.message.chat.id, 'Position Started Exiting')
-                
+                bot.send_message(call.message.chat.id,show[0])
                 ret = api.get_order_book()
 
                 for i in ret['norenordno'][ret['status']=='OPEN']:
@@ -774,4 +1066,4 @@ def callback_handler(call):
         
                               
     
-bot.infinity_polling(timeout=10, long_polling_timeout = 5)
+bot.infinity_polling(timeout=15, long_polling_timeout = 15)
