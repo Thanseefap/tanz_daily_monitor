@@ -9,6 +9,8 @@ global expiry
 global PNL_TYPE
 global no_lot
 global sl_type
+global exchange
+
 
 no_lot=1
 scrip='ALL'
@@ -20,6 +22,8 @@ exit='NO'
 expiry='NO'
 PNL_TYPE='T_PNL'
 sl_type='P'
+exchange='NFO'
+
 
 from math import floor
 import re
@@ -147,7 +151,7 @@ def place_order(BUY_SELL,sym,qty):
     print(BUY_SELL,test1,sym)
     x=api.place_order(buy_or_sell=BUY_SELL
                                         , product_type='M',
-                                            exchange='NFO', tradingsymbol=sym, 
+                                            exchange=exchange, tradingsymbol=sym, 
                                             quantity=qty*lot, discloseqty=0,price_type='MKT', #price=0.1,# trigger_price=199.50,
                                             retention='DAY', remarks='my_algo_order')   
     #This will return 'Ok' if order is processed to the system
@@ -227,7 +231,7 @@ def adjustment(CALL_PUT,ACTION,LEVEL,QTY):
         
         QTY=int(QTY)
 
-        df1=df1[df1['exch']=='NFO'][df1['tsym'].str.contains(scrip)]
+        df1=df1[df1['exch']==exchange][df1['tsym'].str.contains(scrip)]
         if scrip=='NIFTY':
                      df1=df1[~df1['tsym'].str.contains('BANK')]
                      df1=df1[~df1['tsym'].str.contains('FIN')]
@@ -274,7 +278,7 @@ def adjustment(CALL_PUT,ACTION,LEVEL,QTY):
         
         x=api.place_order(buy_or_sell='B'
                                         , product_type='M',
-                                            exchange='NFO', tradingsymbol=tsym, 
+                                            exchange=exchange, tradingsymbol=tsym, 
                                             quantity=QTY*lot, discloseqty=0,price_type='MKT', #price=0.1,# trigger_price=199.50,
                                             retention='DAY', remarks='my_algo_order')
         if factor==0:
@@ -284,7 +288,7 @@ def adjustment(CALL_PUT,ACTION,LEVEL,QTY):
         
             x=api.place_order(buy_or_sell='S'
                                         , product_type='M',
-                                            exchange='NFO', tradingsymbol=tsym1, 
+                                            exchange=exchange, tradingsymbol=tsym1, 
                                             quantity=QTY*lot, discloseqty=0,price_type='MKT', #price=0.1,# trigger_price=199.50,
                                             retention='DAY', remarks='my_algo_order')
             if x['stat']=='Ok':
@@ -309,9 +313,11 @@ def Riskmanager(script,percent):
         #script='BANK'
             df1=pd.DataFrame(api.get_positions())
             if script=='ALL':
-                df1=df1[df1['exch']=='NFO']
+                df1=df1[df1['exch']==exchange]
             else:
-                df1=df1[df1['exch']=='NFO'][df1['tsym'].str.contains(script)]
+                print(script)
+                print(df1)
+                df1=df1[df1['tsym'].str.contains(script)]
 
                 ## Taking care of NIFTY as BANKNIFTY contains NIFTY in tsym name
                 if script=='NIFTY':
@@ -320,7 +326,7 @@ def Riskmanager(script,percent):
                 ## Added Expiry
               #  print(expiry)
                 if expiry !='NO':
-                    df1=df1[df1['exch']=='NFO'][df1['tsym'].str.contains(expiry)]
+                    df1=df1[df1['tsym'].str.contains(expiry)]
                     
             df1[['urmtom', 'rpnl','netqty','netavgprc','lp']] = df1[['urmtom', 'rpnl','netqty','netavgprc','lp']].apply(pd.to_numeric)
             df1['net']=df1['netqty']*df1['lp']
@@ -328,7 +334,9 @@ def Riskmanager(script,percent):
 
             booked_pl=df1['rpnl'].sum()
             un_real_pl=df1['urmtom'].sum()
-
+            print(df1['rpnl'])
+            print(df1['urmtom'])
+            print(booked_pl,un_real_pl)
             ## Ading PNL Selection method for 3PM Entry
             print(PNL_TYPE)
             if PNL_TYPE=='T_PNL':
@@ -343,14 +351,18 @@ def Riskmanager(script,percent):
             p=(mtm/used_margin)*100
             print('check 1')
 
-
-            call_prem=-1*df1['net'][df1['dname'].str.contains('CE')].sum()
-            put_prem=-1*df1['net'][df1['dname'].str.contains('PE')].sum()
+            if script!='SEN':
+                 filter_option='dname'
+            else:
+                 filter_option='tsym'
+                 
+            call_prem=-1*df1['net'][df1[filter_option].str.contains('CE')].sum()
+            put_prem=-1*df1['net'][df1[filter_option].str.contains('PE')].sum()
             
-            ce_b_lots=df1['netqty'][df1['dname'].str.contains('CE')][df1['netqty']>0].sum()
-            ce_s_lots=df1['netqty'][df1['dname'].str.contains('CE')][df1['netqty']<0].sum()
-            pe_b_lots=df1['netqty'][df1['dname'].str.contains('PE')][df1['netqty']>0].sum()
-            pe_s_lots=df1['netqty'][df1['dname'].str.contains('PE')][df1['netqty']<0].sum()
+            ce_b_lots=df1['netqty'][df1[filter_option].str.contains('CE')][df1['netqty']>0].sum()
+            ce_s_lots=df1['netqty'][df1[filter_option].str.contains('CE')][df1['netqty']<0].sum()
+            pe_b_lots=df1['netqty'][df1[filter_option].str.contains('PE')][df1['netqty']>0].sum()
+            pe_s_lots=df1['netqty'][df1[filter_option].str.contains('PE')][df1['netqty']<0].sum()
 
 
             print(ce_b_lots,ce_s_lots,pe_b_lots,pe_s_lots)
@@ -377,7 +389,7 @@ def Riskmanager(script,percent):
                     
                     api.place_order(buy_or_sell=sell_buy
                                         , product_type='M',
-                                            exchange='NFO', tradingsymbol=symp, 
+                                            exchange=exchange, tradingsymbol=symp, 
                                             quantity=lot*lot_multipier, discloseqty=0,price_type='MKT', #price=0.1,# trigger_price=199.50,
                                             retention='DAY', remarks='my_algo_order')
                     sleep(2)
@@ -385,7 +397,7 @@ def Riskmanager(script,percent):
              if balance>0:
                   api.place_order(buy_or_sell=sell_buy
                                         , product_type='M',
-                                            exchange='NFO', tradingsymbol=symp, 
+                                            exchange=exchange, tradingsymbol=symp, 
                                             quantity=lot*balance, discloseqty=0,price_type='MKT', #price=0.1,# trigger_price=199.50,
                                             retention='DAY', remarks='my_algo_order')
                   
@@ -592,7 +604,7 @@ def expiry(message):
             temp=[]
             
             for i in df1['token']:
-                x=api.get_security_info('NFO', i)
+                x=api.get_security_info(exchange, i)
                 temp.append(x['exd'])
             y=set(temp)
             for  i  in y:
@@ -691,6 +703,7 @@ def callback_handler(call):
     global PNL_TYPE
     global lot
     global sl_type
+    global exchange
     print(call.data)
     if call.data == 'Login Details':
     # Echo the user's message
@@ -898,8 +911,9 @@ def callback_handler(call):
 
     elif call.data=='SEN':
         #global scrip
-        scrip='SENSEX'
+        scrip='SEN'
         lot=10
+        exchange='BFO'
         bot.send_message(call.message.chat.id, 'Index: SENSEX')
         
     elif call.data=='Profit Booking':
@@ -907,26 +921,23 @@ def callback_handler(call):
         if df1.shape[0]==0:
             bot.send_message(call.message.chat.id, 'There is No Position ')
         else:
-            df1=df1[df1['exch']=='NFO'][df1['netqty']!='0']
+            df1=df1[df1['exch']==exchange][df1['netqty']!='0']
           
         df1['CALL_PUT'] = np.where(df1['tsym'].str.contains('C', 'CE',
                                     'PE'))
         df1[['tsym','lp','CALL_PUT']]
         ce=df1[df1['CALL_PUT']=='CE'][df1['lp']==df['lp'].max()].iloc[0][0]
         pe=df1[df1['CALL_PUT']=='PE'][df1['lp']==df['lp'].max()].iloc[0][0]
-        if scrip=='BANK':
-            quantity=15
-        else:
-            quantity=40
+       
         api.place_order(buy_or_sell='B'
                                 , product_type='M',
-                                    exchange='NFO', tradingsymbol=ce, 
-                                    quantity=quantity, discloseqty=0,price_type='MKT', #price=0.1,# trigger_price=199.50,
+                                    exchange=exchange, tradingsymbol=ce, 
+                                    quantity=lot, discloseqty=0,price_type='MKT', #price=0.1,# trigger_price=199.50,
                                     retention='DAY', remarks='my_algo_order')
         api.place_order(buy_or_sell='B'
                                 , product_type='M',
-                                    exchange='NFO', tradingsymbol=pe, 
-                                    quantity=quantity, discloseqty=0,price_type='MKT', #price=0.1,# trigger_price=199.50,
+                                    exchange=exchange, tradingsymbol=pe, 
+                                    quantity=lot, discloseqty=0,price_type='MKT', #price=0.1,# trigger_price=199.50,
                                     retention='DAY', remarks='my_algo_order')
             
         bot.send_message(call.message.chat.id, 'Reduced Risk / Profit Booked by 1 lot')
@@ -946,7 +957,7 @@ def callback_handler(call):
                 
             else:
                 
-                df1=df1[df1['exch']=='NFO'][df1['netqty']!='0']
+                df1=df1[df1['exch']==exchange][df1['netqty']!='0']
                 df1[['urmtom', 'rpnl','netqty','netavgprc']] = df1[['urmtom', 'rpnl','netqty','netavgprc']].apply(pd.to_numeric)
                 df1['Buy_Sell'] = np.where(df1['netqty']>0, 'BUY',
                                    np.where(df1['netqty']<0, 'SELL','Other'
