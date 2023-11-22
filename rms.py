@@ -334,11 +334,11 @@ def Riskmanager(script,percent):
 
             booked_pl=df1['rpnl'].sum()
             un_real_pl=df1['urmtom'].sum()
-            print(df1['rpnl'])
-            print(df1['urmtom'])
-            print(booked_pl,un_real_pl)
+            #print(df1['rpnl'])
+            #print(df1['urmtom'])
+            #print(booked_pl,un_real_pl)
             ## Ading PNL Selection method for 3PM Entry
-            print(PNL_TYPE)
+            #print(PNL_TYPE)
             if PNL_TYPE=='T_PNL':
                mtm=booked_pl+un_real_pl
                print(mtm)
@@ -380,7 +380,7 @@ def Riskmanager(script,percent):
             return show
         def exit_position(qty,sym,sell_buy):
              no_lot=abs(int(qty))/lot
-             lot_multipier=5
+             lot_multipier=8
              balance=no_lot%lot_multipier
              rep=floor(no_lot/lot_multipier)
 
@@ -392,7 +392,7 @@ def Riskmanager(script,percent):
                                             exchange=exchange, tradingsymbol=symp, 
                                             quantity=lot*lot_multipier, discloseqty=0,price_type='MKT', #price=0.1,# trigger_price=199.50,
                                             retention='DAY', remarks='my_algo_order')
-                    sleep(2)
+                    sleep(0.1)
                     
              if balance>0:
                   api.place_order(buy_or_sell=sell_buy
@@ -1068,7 +1068,7 @@ def callback_handler(call):
                 send_dataframe_as_table(call.message.chat.id,df)
                # send_dataframe_as_table(call.message.chat.id, df)
                 #bot.send_message(call.message.chat.id, 'Set Stop Loss :' +str(stop_loss)+'& Net P/L : '+str(Net_PL)+'  & Net Credit Amount = '+str(Net_credit))
-                time.sleep(15)  # Delay for 15 seconds
+                time.sleep(20)  # Delay for 15 seconds
            #print('checker1')
            # if exit=='0':
             #    break
