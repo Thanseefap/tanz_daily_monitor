@@ -14,14 +14,14 @@ global exchange
 
 no_lot=1
 scrip='ALL'
-sl=-0.15
-profit_b=1
+sl=-1000
+profit_b=10000
 
 client_id='7'
 exit='NO'
 expiry='NO'
 PNL_TYPE='T_PNL'
-sl_type='P'
+sl_type='C'
 exchange='NFO'
 
 
@@ -542,7 +542,8 @@ def index_select(message):
     item3 = types.InlineKeyboardButton('NIFTY', callback_data='NIFTY')
     item4 = types.InlineKeyboardButton('FIN', callback_data='FIN')
     item5 = types.InlineKeyboardButton('SENSEX', callback_data='SEN')
-    markup.add(item1, item2, item3,item4,item5)
+    item6 = types.InlineKeyboardButton('MIDCAP', callback_data='MID')
+    markup.add(item1, item2, item3,item4,item5,item6)
     
     bot.send_message(message.chat.id, 'Index Selection', reply_markup=markup)
      
@@ -915,6 +916,12 @@ def callback_handler(call):
         lot=10
         exchange='BFO'
         bot.send_message(call.message.chat.id, 'Index: SENSEX')
+    elif call.data=='MID':
+        #global scrip
+        scrip='MID'
+        lot=75
+        exchange='NFO'
+        bot.send_message(call.message.chat.id, 'Index: MIDCAP')
         
     elif call.data=='Profit Booking':
         df1=pd.DataFrame(api.get_positions())
@@ -1034,8 +1041,8 @@ def callback_handler(call):
                 bot.send_message(call.message.chat.id,show[0])
                 ret = api.get_order_book()
 
-                for i in ret['norenordno'][ret['status']=='OPEN']:
-                    x=api.cancel_order(orderno=i)
+                #for i in ret['norenordno'][ret['status']=='OPEN']:
+                   # x=api.cancel_order(orderno=i)
                     
                 exit='YES'
                 break    
@@ -1068,7 +1075,7 @@ def callback_handler(call):
                 send_dataframe_as_table(call.message.chat.id,df)
                # send_dataframe_as_table(call.message.chat.id, df)
                 #bot.send_message(call.message.chat.id, 'Set Stop Loss :' +str(stop_loss)+'& Net P/L : '+str(Net_PL)+'  & Net Credit Amount = '+str(Net_credit))
-                time.sleep(20)  # Delay for 15 seconds
+                time.sleep(8)  # Delay for 15 seconds
            #print('checker1')
            # if exit=='0':
             #    break
