@@ -45,7 +45,7 @@ class shoonya(object):
             self.vc='FA145842_U'
         else:
             self.uid = 'FA76209'
-            self.pwd = 'Strangle@28'
+            self.pwd = 'Strangle@29'
             self.factor2 = twofa
             self.imei = '60-45-CB-C5-A7-49'
             self.app_key = '6aa1e19981a9f1eeef8b2a96598ef3e3'
